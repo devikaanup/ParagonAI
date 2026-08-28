@@ -359,6 +359,8 @@ export async function runFullPipeline({
     if (onStageUpdate) onStageUpdate({ stage: stageName, data: state });
   };
 
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
   // Stage 1: Profile Builder
   updateStage('profile', { status: 'in_progress' });
   const { evaluationContext, modelUsed } = await runProfileBuilder({
@@ -369,6 +371,7 @@ export async function runFullPipeline({
   state.evaluation_context = evaluationContext;
   state.profileModel = modelUsed;
   updateStage('profile', { status: 'completed', evaluationContext });
+  await sleep(1000);
 
   // Stage 2: Independent Agent Opinions (4 isolated calls)
   updateStage('opinions', { status: 'in_progress', agentStatuses: {} });
@@ -385,6 +388,7 @@ export async function runFullPipeline({
   const availableAgentsCount = opinions.filter((op) => !op.error).length;
   state.panelLabel = availableAgentsCount === 4 ? '4-agent panel (Full)' : `${availableAgentsCount}-agent panel (Partial)`;
   updateStage('opinions', { status: 'completed', opinions });
+  await sleep(1000);
 
   // Stage 3: Debate (4 sequential calls)
   updateStage('debate', { status: 'in_progress', turns: [] });
@@ -399,6 +403,7 @@ export async function runFullPipeline({
   });
   state.debate = debateTranscript;
   updateStage('debate', { status: 'completed', debate: debateTranscript });
+  await sleep(1000);
 
   // Stage 4: Auditor (1 call)
   updateStage('auditor', { status: 'in_progress' });
@@ -409,6 +414,7 @@ export async function runFullPipeline({
   });
   state.auditor = auditorReport;
   updateStage('auditor', { status: 'completed', auditor: auditorReport });
+  await sleep(1000);
 
   // Stage 5: Decision Synthesizer (1 call)
   updateStage('decision', { status: 'in_progress' });
@@ -420,6 +426,7 @@ export async function runFullPipeline({
   });
   state.decision = decision;
   updateStage('decision', { status: 'completed', decision });
+  await sleep(1000);
 
   // Stage 6: Interview Questions (1 call)
   updateStage('questions', { status: 'in_progress' });

@@ -151,34 +151,46 @@ import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from './lib/demoData.js';
     });
   });
 
-  /* File extraction */
+  /* Server-Side File Extraction (§13) */
   const ACCEPTED = [".pdf", ".docx", ".txt"];
 
-  async function extractText(file) {
-    const name = file.name.toLowerCase();
-    if (name.endsWith(".txt")) return await file.text();
-    if (name.endsWith(".pdf")) return await extractPdf(file);
-    if (name.endsWith(".docx")) return await extractDocx(file);
-    throw new Error("Unsupported file type");
-  }
-
-  async function extractPdf(file) {
-    const pdfjs = await import("pdfjs-dist");
-    const loadingTask = pdfjs.getDocument(await file.arrayBuffer());
-    const pdf = await loadingTask.promise;
-    let text = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      text += content.items.map((it) => it.str).join(" ") + "\n";
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
     }
-    return text.trim();
+    return window.btoa(binary);
   }
 
-  async function extractDocx(file) {
-    const mammoth = await import("mammoth/mammoth.browser");
-    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-    return result.value.trim();
+  async function extractFileServerSide(file) {
+    const name = file.name.toLowerCase();
+    const ext = "." + name.split(".").pop();
+    if (!ACCEPTED.includes(ext)) {
+      throw new Error(`Unsupported format '${ext}'. Please upload a PDF, DOCX, or TXT file.`);
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = arrayBufferToBase64(arrayBuffer);
+
+    const response = await fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        mimeType: file.type,
+        base64
+      })
+    });
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      throw new Error(errJson.error || `Extraction failed with HTTP status ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
   }
 
   function wireDropzone(id) {
@@ -194,11 +206,12 @@ import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from './lib/demoData.js';
         setStatus(dz, "Unsupported format. Use PDF, DOCX, or TXT.", true);
         return;
       }
-      setStatus(dz, `Extracting ${file.name}…`, false);
+      setStatus(dz, `Uploading & extracting ${file.name} on server…`, false);
       try {
-        const text = await extractText(file);
-        target.value = text;
-        setStatus(dz, `Loaded ${file.name} (${text.length.toLocaleString()} chars)`, false);
+        const result = await extractFileServerSide(file);
+        target.value = result.text;
+        const pageInfo = result.pageCount ? ` (${result.pageCount} pages)` : '';
+        setStatus(dz, `✓ Loaded ${file.name}${pageInfo} — ${result.charCount.toLocaleString()} chars`, false);
         updateBtn();
       } catch (err) {
         setStatus(dz, "Could not read file: " + err.message, true);

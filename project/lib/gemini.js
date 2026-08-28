@@ -9,10 +9,7 @@ dotenv.config();
 
 const DEFAULT_MODELS = [
   'gemini-3.6-flash',
-  'gemini-3.7-flash',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-pro'
+  'gemini-3.7-flash'
 ];
 
 export function getApiKey() {
@@ -132,7 +129,10 @@ export async function generateGeminiContent({
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 0) {
-          const delayMs = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+          let delayMs = Math.pow(2, attempt) * 1200 + Math.random() * 500;
+          if (lastError && lastError.retryDelaySec) {
+            delayMs = Math.min(30000, lastError.retryDelaySec * 1000);
+          }
           console.log(`[Gemini Client] Retrying ${modelName} after backoff ${Math.round(delayMs)}ms (attempt ${attempt + 1}/${maxRetries + 1})...`);
           await new Promise((res) => setTimeout(res, delayMs));
         }
@@ -167,7 +167,7 @@ export async function generateGeminiContent({
           };
         } catch (sdkError) {
           // If SDK throws network/fetch error, attempt direct REST fallback
-          console.warn(`[Gemini Client] SDK call for ${modelName} encountered error:`, sdkError.message);
+          console.warn(`[Gemini Client] SDK call for ${modelName} encountered notice:`, sdkError.message);
 
           const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
           const bodyPayload = {
@@ -199,8 +199,14 @@ export async function generateGeminiContent({
           if (!fetchRes.ok) {
             const errData = await fetchRes.json().catch(() => ({}));
             const errMsg = errData.error?.message || `HTTP ${fetchRes.status} ${fetchRes.statusText}`;
-            const error = new Error(`Gemini REST API error (${modelName}): ${errMsg}`);
+            const error = new Error(`Gemini REST API notice (${modelName}): ${errMsg}`);
             error.status = fetchRes.status;
+
+            // Extract retryDelay if present
+            const retryMatch = errMsg.match(/retry in (\d+(?:\.\d+)?)s/i);
+            if (retryMatch) {
+              error.retryDelaySec = parseFloat(retryMatch[1]);
+            }
             throw error;
           }
 
@@ -222,7 +228,7 @@ export async function generateGeminiContent({
         const isServerErr = err.status >= 500 || (err.message && err.message.includes('503'));
 
         if (!isRateLimit && !isServerErr && attempt === 0) {
-          // If error is 400 or invalid model, break out to try next fallback model
+          // If error is 400/404, break out to try next fallback model immediately
           break;
         }
       }

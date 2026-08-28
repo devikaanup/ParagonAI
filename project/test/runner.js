@@ -9,6 +9,7 @@ import { SYSTEM_INSTRUCTIONS } from '../lib/prompts.js';
 import { AGENT_PERSONAS } from '../lib/pipeline.js';
 import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from '../lib/demoData.js';
 import { handler } from '../netlify/functions/api.js';
+import { extractDocumentText } from '../lib/documentExtractor.js';
 
 let passed = 0;
 let failed = 0;
@@ -128,6 +129,62 @@ async function runTests() {
   const sanitized = sanitizeString(dirtyString);
   assert(!sanitized.includes('<script>'), "HTML script tags sanitized");
   assert(sanitized.includes('&lt;script&gt;'), "Sanitized entity preserved");
+
+  // TEST SUITE 6: Server-Side Document Extraction (PDF, DOCX, TXT)
+  console.log('\n[Suite 6] Server-Side Document Text Extraction (§13)');
+  const fs = await import('fs');
+  const path = await import('path');
+  const { fileURLToPath } = await import('url');
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+  const txtPath = path.join(__dirname, 'fixtures/sample_resume.txt');
+  const docxPath = path.join(__dirname, 'fixtures/sample_resume.docx');
+  const pdfPath = path.join(__dirname, 'fixtures/sample_resume.pdf');
+
+  // 6.1 TXT Extraction
+  const txtBuffer = fs.readFileSync(txtPath);
+  const txtResult = await extractDocumentText({ buffer: txtBuffer, filename: 'sample_resume.txt' });
+  assert(txtResult.format === 'txt', "TXT format identified");
+  assert(txtResult.text.includes('ALEX RIVERA'), "TXT content contains candidate name");
+  assert(txtResult.charCount > 100, "TXT charCount computed accurately");
+
+  // 6.2 DOCX Extraction
+  const docxBuffer = fs.readFileSync(docxPath);
+  const docxResult = await extractDocumentText({ buffer: docxBuffer, filename: 'sample_resume.docx' });
+  assert(docxResult.format === 'docx', "DOCX format identified");
+  assert(docxResult.text.includes('ALEX RIVERA'), "DOCX content contains candidate name");
+  assert(docxResult.charCount > 50, "DOCX charCount computed accurately");
+
+  // 6.3 PDF Extraction
+  const pdfBuffer = fs.readFileSync(pdfPath);
+  const pdfResult = await extractDocumentText({ buffer: pdfBuffer, filename: 'sample_resume.pdf' });
+  assert(pdfResult.format === 'pdf', "PDF format identified");
+  assert(pdfResult.text.includes('ALEX RIVERA'), "PDF content contains candidate name");
+  assert(pdfResult.charCount > 50, "PDF charCount computed accurately");
+
+  // 6.4 Unsupported Format Rejection
+  let errorCaught = false;
+  try {
+    await extractDocumentText({ buffer: Buffer.from('fake data'), filename: 'malicious.exe' });
+  } catch (err) {
+    errorCaught = true;
+    assert(err.message.includes('Unsupported file type'), "Unsupported file rejected with clear error message");
+  }
+  assert(errorCaught === true, "Unsupported format error handled safely");
+
+  // 6.5 Serverless API POST /api/extract (Base64)
+  const extractApiResponse = await handler({
+    httpMethod: 'POST',
+    path: '/api/extract',
+    body: JSON.stringify({
+      filename: 'sample_resume.pdf',
+      mimeType: 'application/pdf',
+      base64: pdfBuffer.toString('base64')
+    })
+  }, {});
+  assert(extractApiResponse.statusCode === 200, "POST /api/extract returned HTTP 200 for PDF");
+  const extractApiData = JSON.parse(extractApiResponse.body);
+  assert(extractApiData.format === 'pdf' && extractApiData.text.includes('ALEX RIVERA'), "API returned extracted PDF text");
 
   console.log('\n=============================================');
   console.log(`TOTAL TESTS: ${passed + failed} | PASSED: ${passed} | FAILED: ${failed}`);

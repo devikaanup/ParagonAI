@@ -1,0 +1,19 @@
+ALEX RIVERA
+Staff Distributed Systems Engineer
+San Francisco, CA | alex.rivera@infra-systems.dev
+
+SUMMARY:
+Distributed systems specialist with 9 years of experience designing high-throughput consensus systems, multi-region metadata engines, and zero-downtime data pipelines.
+
+EXPERIENCE:
+Staff Infrastructure Engineer — Apex Storage Technologies (2022 – Present)
+- Principal architect for global Raft-based metadata storage cluster processing 3.1M operations/sec at sub-5ms p99 latency.
+- Achieved 99.999% uptime across 18 months by engineering automated heartbeat partition recovery and leaseholder rebalancing.
+- Built custom Go-based Kubernetes operator automating snapshot backups across 400+ nodes.
+
+Senior Backend Engineer — DataGrid Cloud Platforms (2018 – 2022)
+- Designed and maintained asynchronous change-data-capture (CDC) pipeline ingesting 14 TB/day into CockroachDB.
+- Reduced inter-region replication latency by 42% through custom TCP packet batching and eBPF socket tracing.
+
+EDUCATION:
+B.S. in Computer Science — University of Washington (2014 – 2018)
