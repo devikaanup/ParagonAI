@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const runGoldenBtn = document.getElementById('runGoldenBtn');
   const loadInjectionBtn = document.getElementById('loadInjectionBtn');
   const clearBtn = document.getElementById('clearBtn');
+  const newEvalBtn = document.getElementById('newEvalBtn');
   const resultsSection = document.getElementById('resultsSection');
   const pipelineTracker = document.getElementById('pipelineTracker');
   const quoteModal = document.getElementById('quoteInspectorModal') || document.getElementById('quoteModal');
@@ -54,43 +55,44 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDropzone('role', () => updateRunButton());
 
   /* ===== Tab Mode Switching & Direct File Picker Triggers ===== */
-  document.querySelectorAll('.mode-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const mode = tab.dataset.mode;
-      const parent = tab.closest('.input-field');
-      if (!parent) return;
+  document.querySelectorAll('.mode-tabs').forEach((tabContainer) => {
+    tabContainer.querySelectorAll('.mode-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const mode = tab.dataset.mode;
+        const parent = tab.closest('.input-field');
+        if (!parent) return;
 
-      // Update active tab buttons
-      parent.querySelectorAll('.mode-tab').forEach((t) => t.classList.remove('active'));
-      tab.classList.add('active');
+        // Update active tab buttons
+        parent.querySelectorAll('.mode-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
 
-      const pastePanel = parent.querySelector('[data-mode-panel$="-paste"]');
-      const uploadPanel = parent.querySelector('[data-mode-panel$="-upload"]');
-      const fileInput = parent.querySelector('input[type="file"]');
+        const pastePanel = parent.querySelector('[data-mode-panel$="-paste"]');
+        const uploadPanel = parent.querySelector('[data-mode-panel$="-upload"]');
+        const fileInput = parent.querySelector('input[type="file"]');
 
-      if (mode === 'upload') {
-        if (pastePanel) {
-          pastePanel.hidden = true;
-          pastePanel.style.display = 'none';
+        if (mode === 'upload') {
+          if (pastePanel) {
+            pastePanel.hidden = true;
+            pastePanel.style.display = 'none';
+          }
+          if (uploadPanel) {
+            uploadPanel.hidden = false;
+            uploadPanel.style.display = 'block';
+          }
+          if (fileInput) {
+            fileInput.click();
+          }
+        } else {
+          if (uploadPanel) {
+            uploadPanel.hidden = true;
+            uploadPanel.style.display = 'none';
+          }
+          if (pastePanel) {
+            pastePanel.hidden = false;
+            pastePanel.style.display = 'block';
+          }
         }
-        if (uploadPanel) {
-          uploadPanel.hidden = false;
-          uploadPanel.style.display = 'block';
-        }
-        // Clicking "Upload File" directly opens the native Finder / file picker
-        if (fileInput) {
-          fileInput.click();
-        }
-      } else {
-        if (uploadPanel) {
-          uploadPanel.hidden = true;
-          uploadPanel.style.display = 'none';
-        }
-        if (pastePanel) {
-          pastePanel.hidden = false;
-          pastePanel.style.display = 'block';
-        }
-      }
+      });
     });
   });
 
@@ -190,6 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (newEvalBtn) {
+    newEvalBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
   if (runGoldenBtn) {
     runGoldenBtn.addEventListener('click', async () => {
       if (loadDemoBtn) await loadDemoBtn.click();
@@ -237,13 +245,17 @@ document.addEventListener('DOMContentLoaded', () => {
           transcriptText,
           jobDescriptionText
         });
-        const evaluationContext = profileData.evaluationContext || profileData;
+        const evaluationContext = profileData?.evaluationContext || profileData;
+        if (!evaluationContext || Object.keys(evaluationContext).length === 0) {
+          throw new Error('Profile Builder returned no evaluation context.');
+        }
+
         setStageStatus('profile', 'completed', 'Ready');
         renderProfileContext(evaluationContext);
 
-        // Stage 2: 4 Independent Agents in Parallel
-        currentStage = 'agents';
-        setStageStatus('agents', 'running', 'Evaluating (0/4)');
+        // Stage 2: 4 Independent Agents in Parallel (Begins only after Stage 1 finishes)
+        currentStage = 'opinions';
+        setStageStatus('opinions', 'running', 'Evaluating (0/4)');
         const agentKeys = ['technical', 'hr', 'hiringManager', 'skeptic'];
         let finishedAgentCount = 0;
 
@@ -255,12 +267,12 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           const opinion = opRes?.opinion || opRes;
           finishedAgentCount++;
-          setStageStatus('agents', 'running', `Evaluating (${finishedAgentCount}/4)`);
+          setStageStatus('opinions', 'running', `Evaluating (${finishedAgentCount}/4)`);
           return opinion;
         });
 
         const opinions = await Promise.all(opinionPromises);
-        setStageStatus('agents', 'completed', '4/4 Complete');
+        setStageStatus('opinions', 'completed', '4/4 Complete');
         renderOpinions(opinions, evaluationContext);
         updateCommitteeBar({ activeKey: null, opinions, turns: [] });
 
@@ -268,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentStage = 'debate';
         setStageStatus('debate', 'running', 'Deliberating');
         const debateTurns = [];
-        const debateTurnsContainer = document.getElementById('debateTurns');
+        const debateTurnsContainer = document.getElementById('debateContainer');
         const statusIndicator = document.getElementById('debateStatusIndicator');
         if (debateTurnsContainer) debateTurnsContainer.innerHTML = '';
 

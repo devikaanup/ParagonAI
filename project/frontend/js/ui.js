@@ -13,22 +13,39 @@ export function escapeHtml(str) {
 }
 
 export function openQuoteInspector(quote, source = '', context = '') {
-  const quoteModal = document.getElementById('quoteModal');
-  const quoteModalText = document.getElementById('quoteModalText');
-  const quoteModalSource = document.getElementById('quoteModalSource');
-  const quoteModalContext = document.getElementById('quoteModalContext');
+  const modal = document.getElementById('quoteInspectorModal') || document.getElementById('quoteModal');
+  if (!modal) return;
 
-  if (!quoteModal) return;
+  const inspectorContent = document.getElementById('inspectorContent');
+  if (inspectorContent) {
+    inspectorContent.innerHTML = `
+      <div style="font-size: 1.02rem; line-height: 1.5; color: #ffffff; margin-bottom: 14px; font-style: italic; border-left: 3px solid var(--tech-blue); padding-left: 12px;">
+        "${escapeHtml(quote || '')}"
+      </div>
+      <div style="font-size: 0.82rem; color: var(--lavender); margin-bottom: 8px;">
+        <strong>Source:</strong> ${escapeHtml(source || 'Candidate Submission')}
+      </div>
+      ${
+        context
+          ? `<div style="font-size: 0.8rem; color: #cbd5e1;"><strong>Context / Relevance:</strong> ${escapeHtml(context)}</div>`
+          : ''
+      }
+    `;
+  } else {
+    const textEl = document.getElementById('quoteModalText');
+    const sourceEl = document.getElementById('quoteModalSource');
+    const ctxEl = document.getElementById('quoteModalContext');
+    if (textEl) textEl.textContent = `"${quote || ''}"`;
+    if (sourceEl) sourceEl.textContent = source ? `Source: ${source}` : 'Source: Candidate Data';
+    if (ctxEl) ctxEl.textContent = context || 'Exact quote cited during candidate evaluation.';
+  }
 
-  if (quoteModalText) quoteModalText.textContent = `"${quote || ''}"`;
-  if (quoteModalSource) quoteModalSource.textContent = source ? `Source: ${source}` : 'Source: Candidate Data';
-  if (quoteModalContext) quoteModalContext.textContent = context || 'Exact quote cited during candidate evaluation.';
-
-  quoteModal.style.display = 'flex';
+  modal.style.display = 'flex';
 }
 
 export function setStageStatus(stage, status, badgeText) {
-  const el = document.getElementById(`step-${stage}`);
+  const normalized = stage === 'agents' ? 'opinions' : stage;
+  const el = document.getElementById(`step-${normalized}`) || document.getElementById(`step-${stage}`);
   if (!el) return;
   el.className = `tracker-step is-${status}`;
   const badge = el.querySelector('.step-badge');
@@ -41,7 +58,7 @@ export function resetTracker() {
   tracker.style.display = 'grid';
   const STAGES = ['profile', 'opinions', 'debate', 'auditor', 'decision', 'questions'];
   STAGES.forEach((stage) => {
-    const el = document.getElementById(`step-${stage}`);
+    const el = document.getElementById(`step-${stage}`) || document.getElementById(`step-agents`);
     if (el) {
       el.className = 'tracker-step';
       const badge = el.querySelector('.step-badge');
@@ -51,10 +68,22 @@ export function resetTracker() {
 }
 
 export function renderProfileContext(ctxInput) {
-  const profileContainer = document.getElementById('profileContainer');
+  const profileContainer =
+    document.getElementById('profileContextBody') ||
+    document.getElementById('profileContainer') ||
+    document.getElementById('profileContextCard');
   if (!profileContainer) return;
 
-  const ctx = ctxInput?.evaluationContext || ctxInput || {};
+  const ctx = ctxInput?.evaluationContext || ctxInput;
+  if (!ctx || typeof ctx !== 'object' || Object.keys(ctx).length === 0) {
+    profileContainer.innerHTML = `
+      <div class="card-empty-state" style="padding: 16px; color: var(--skeptic-red); font-size: 0.88rem;">
+        ⚠️ Profile Builder returned no evaluation context.
+      </div>
+    `;
+    return;
+  }
+
   const candidate = ctx.candidate || {};
   const role = ctx.role || {};
   const claims = Array.isArray(ctx.claims) ? ctx.claims : [];
@@ -68,23 +97,23 @@ export function renderProfileContext(ctxInput) {
     : [];
 
   let html = `
-    <div class="card" style="border-top: 3px solid var(--lavender);">
+    <div style="border-top: 1px solid var(--border); padding-top: 14px; margin-top: 8px;">
       <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-        <h3 class="card-title" style="margin-bottom: 0;">${escapeHtml(candidate.name || 'Candidate Profile')}</h3>
-        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--lavender);">${escapeHtml(role.title || 'Role')}</span>
+        <h3 class="card-title" style="margin-bottom: 0; font-size: 1.25rem;">${escapeHtml(candidate.name || 'Candidate Profile')}</h3>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--lavender); font-weight: 600;">${escapeHtml(role.title || 'Role Target')}</span>
       </div>
       <p style="color: #cbd5e1; font-size: 0.92rem; margin-bottom: 16px; line-height: 1.5;">${escapeHtml(candidate.summary || 'Summary profile generated by Stage 1.')}</p>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 18px;">
         <div>
           <div style="font-size: 0.78rem; font-weight: 700; color: var(--lavender); margin-bottom: 6px; text-transform: uppercase;">Role Must-Haves</div>
-          <ul style="padding-left: 18px; color: #cbd5e1; font-size: 0.82rem; line-height: 1.4;">
-            ${mustHaves.length > 0 ? mustHaves.map((m) => `<li>${escapeHtml(m)}</li>`).join('') : '<li>General engineering excellence and domain depth</li>'}
+          <ul style="padding-left: 18px; color: #cbd5e1; font-size: 0.82rem; line-height: 1.45;">
+            ${mustHaves.length > 0 ? mustHaves.map((m) => `<li>${escapeHtml(m)}</li>`).join('') : '<li>Role depth and technical alignment verified</li>'}
           </ul>
         </div>
         <div>
           <div style="font-size: 0.78rem; font-weight: 700; color: var(--lavender); margin-bottom: 6px; text-transform: uppercase;">Verified Claims Extracted</div>
-          <div style="font-size: 0.82rem; color: #cbd5e1;">${claims.length} explicit claim quotes mapped across Resume and Transcript.</div>
+          <div style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.45;">${claims.length} explicit claim quotes mapped across Resume and Transcript.</div>
         </div>
       </div>
   `;
@@ -97,8 +126,8 @@ export function renderProfileContext(ctxInput) {
           ${inconsistencies
             .map(
               (inc) => `
-            <div class="inconsistency-card">
-              <div class="inconsistency-title">${escapeHtml(inc.topic || 'Inconsistency')}</div>
+            <div class="inconsistency-card" style="background: rgba(255, 255, 255, 0.025); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;">
+              <div class="inconsistency-title" style="font-weight: 700; color: var(--manager-amber); font-size: 0.82rem; margin-bottom: 4px;">${escapeHtml(inc.topic || 'Inconsistency')}</div>
               <div style="font-size: 0.78rem; color: #cbd5e1; margin-bottom: 4px;"><strong>Resume:</strong> "${escapeHtml(inc.resume_statement || '')}"</div>
               <div style="font-size: 0.78rem; color: #cbd5e1; margin-bottom: 4px;"><strong>Interview:</strong> "${escapeHtml(inc.interview_statement || '')}"</div>
               <div style="font-size: 0.75rem; color: #fce7f3; font-style: italic;">Observation: ${escapeHtml(inc.observation || '')}</div>
@@ -177,7 +206,7 @@ export function renderOpinions(opinionsInput, ctx) {
 }
 
 export function updateCommitteeBar({ activeKey = null, opinions = [], turns = [] }) {
-  const bar = document.getElementById('committeeDeliberationBar');
+  const bar = document.getElementById('committeeBar') || document.getElementById('committeeDeliberationBar');
   if (!bar) return;
 
   const PERSONAS = [

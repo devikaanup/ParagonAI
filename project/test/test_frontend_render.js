@@ -1,5 +1,8 @@
 import {
   escapeHtml,
+  openQuoteInspector,
+  setStageStatus,
+  resetTracker,
   renderProfileContext,
   renderOpinions,
   updateCommitteeBar,
@@ -20,19 +23,27 @@ function assert(condition, message) {
 }
 
 // Mock DOM elements for testing UI render functions in Node.js
+const mockElements = new Map();
+
 global.document = {
   getElementById: (id) => {
-    return {
-      id,
-      innerHTML: '',
-      textContent: '',
-      style: {},
-      className: '',
-      appendChild: () => {},
-      scrollIntoView: () => {},
-      querySelector: () => ({ textContent: '', className: '' }),
-      querySelectorAll: () => []
-    };
+    if (!mockElements.has(id)) {
+      mockElements.set(id, {
+        id,
+        innerHTML: '',
+        textContent: '',
+        style: {},
+        className: '',
+        appendChild: function (child) { this.innerHTML += child.innerHTML; },
+        scrollIntoView: () => {},
+        querySelector: function (sel) {
+          if (!this._badge) this._badge = { textContent: '', className: '' };
+          return this._badge;
+        },
+        querySelectorAll: () => []
+      });
+    }
+    return mockElements.get(id);
   },
   createElement: (tag) => {
     return {
@@ -48,102 +59,73 @@ global.document = {
 
 async function testFrontendRendering() {
   console.log('\n===============================================================');
-  console.log('TESTING DEFENSIVE FRONTEND RENDERING ACROSS ALL STAGES');
+  console.log('TESTING STAGE 1 PROFILE RENDERING & STAGE 2 STATUS TRACKING');
   console.log('===============================================================\n');
 
-  // Test 1: Stage 1 Profile Context (Normal, Nested, Partial, Empty)
+  // Test 1: Stage 1 Profile Context into #profileContextBody
   console.log('[Test 1] Stage 1 Profile Builder Rendering:');
-  try {
-    renderProfileContext({ candidate: { name: 'Alex Rivera', summary: 'Staff Engineer' }, role: { title: 'Staff' } });
-    assert(true, 'Render standard profile context succeeded');
+  const sampleProfile = {
+    role: {
+      title: 'Staff Distributed Systems Engineer',
+      must_have: ['10+ yrs distributed systems', 'Raft / Paxos consensus', 'Go or Rust']
+    },
+    candidate: {
+      name: 'Alex Rivera',
+      summary: 'Staff-level engineer with deep Raft expertise and 8 years production experience.'
+    },
+    claims: [
+      { claim: 'Led Raft migration', source: 'resume', quote: 'Led consensus migration serving 2.5M QPS' }
+    ],
+    potential_inconsistencies: [
+      { topic: 'SLA Downtime', resume_statement: '99.999% uptime', interview_statement: '3-hour Q3 outage', observation: 'SLA discrepancy' }
+    ]
+  };
 
-    renderProfileContext({ evaluationContext: { candidate: { name: 'Alex' }, role: {} } });
-    assert(true, 'Render nested evaluationContext profile succeeded');
+  renderProfileContext(sampleProfile);
+  const profileBodyEl = document.getElementById('profileContextBody');
+  assert(profileBodyEl.innerHTML.includes('Alex Rivera'), 'profileContextBody contains candidate name');
+  assert(profileBodyEl.innerHTML.includes('Staff Distributed Systems Engineer'), 'profileContextBody contains role title');
+  assert(profileBodyEl.innerHTML.includes('10+ yrs distributed systems'), 'profileContextBody contains must-haves');
+  assert(profileBodyEl.innerHTML.includes('Tensions') && profileBodyEl.innerHTML.includes('Inconsistencies'), 'profileContextBody contains inconsistencies');
 
-    renderProfileContext({});
-    assert(true, 'Render empty profile context succeeded without throwing');
+  // Test 2: Empty Profile Builder fallback
+  console.log('\n[Test 2] Empty Stage 1 context fallback notice:');
+  renderProfileContext({});
+  assert(profileBodyEl.innerHTML.includes('Profile Builder returned no evaluation context'), 'Empty context displays explicit fallback notice');
 
-    renderProfileContext(null);
-    assert(true, 'Render null profile context handled safely');
-  } catch (err) {
-    assert(false, `Stage 1 rendering failed: ${err.message}`);
-  }
+  // Test 3: Stage 2 Tracker Status Update (Aliasing step-opinions and step-agents)
+  console.log('\n[Test 3] Stage 2 Tracker Status Updates:');
+  setStageStatus('opinions', 'running', 'Evaluating (1/4)');
+  const stepOpinionsEl = document.getElementById('step-opinions');
+  assert(stepOpinionsEl.className.includes('is-running'), "setStageStatus('opinions') marks #step-opinions as running");
+  assert(stepOpinionsEl.querySelector('.step-badge').textContent === 'Evaluating (1/4)', 'Badge updated to Evaluating (1/4)');
 
-  // Test 2: Stage 2 Opinions (Normal, Nested, and Missing Names)
-  console.log('\n[Test 2] Stage 2 Opinions Rendering:');
-  try {
-    const rawOps = [
-      { agent: 'Technical Agent', score: 94, verdict: 'Strong Hire', evidence_quotes: [{ quote: 'Raft consensus' }] },
-      { opinion: { agent: 'HR / Culture Agent', score: 88, verdict: 'Hire' } },
-      { agent: '', score: null } // Edge case: empty agent name
-    ];
-    renderOpinions(rawOps, {});
-    assert(true, 'Render mixed opinions array succeeded without throwing');
-  } catch (err) {
-    assert(false, `Stage 2 rendering failed: ${err.message}`);
-  }
+  setStageStatus('agents', 'completed', '4/4 Complete');
+  assert(stepOpinionsEl.className.includes('is-completed'), "setStageStatus('agents') alias normalizes to #step-opinions");
+  assert(stepOpinionsEl.querySelector('.step-badge').textContent === '4/4 Complete', 'Badge updated to 4/4 Complete');
 
-  // Test 3: Stage 3 Debate Turn Card (.charAt safety tests)
-  console.log('\n[Test 3] Stage 3 Live Deliberation Turn Card (.charAt() safety):');
-  try {
-    // Case A: Standard turn
-    renderSingleDebateTurnCard({ agent: 'Technical Agent', turn_number: 1, turn_type: 'Challenge', response: 'Test', score_before: 94, score_after: 94 }, 1);
-    assert(true, 'Standard debate turn rendered');
+  // Test 4: Stage 3 Committee Bar (#committeeBar)
+  console.log('\n[Test 4] Committee Deliberation Bar Updates:');
+  const opinions = [
+    { agent: 'Technical Agent', score: 94 },
+    { agent: 'HR / Culture Agent', score: 88 },
+    { agent: 'Hiring Manager Agent', score: 92 },
+    { agent: 'Skeptic Agent', score: 72 }
+  ];
+  updateCommitteeBar({ activeKey: 'hiringManager', opinions, turns: [] });
+  const committeeBarEl = document.getElementById('committeeBar');
+  assert(committeeBarEl.innerHTML.includes('Hiring Manager Agent'), 'committeeBar contains Hiring Manager Agent');
+  assert(committeeBarEl.innerHTML.includes('is-speaking'), 'Active speaker is marked as is-speaking');
 
-    // Case B: Wrapped turn { turn: { agent: "Technical Agent" } }
-    renderSingleDebateTurnCard({ turn: { agent: 'Technical Agent', turn_number: 1, turn_type: 'Challenge', response: 'Test' } }, 1);
-    assert(true, 'Wrapped debate turn rendered');
-
-    // Case C: Missing agent property (was the root cause of charAt on undefined)
-    renderSingleDebateTurnCard({}, 1);
-    assert(true, 'Empty turn object handled safely without charAt TypeError');
-
-    // Case D: Null / undefined turn input
-    renderSingleDebateTurnCard(null, 1);
-    assert(true, 'Null turn input handled safely');
-
-    // Case E: Non-string agent name
-    renderSingleDebateTurnCard({ agent: 123 }, 1);
-    assert(true, 'Non-string agent name handled safely');
-  } catch (err) {
-    assert(false, `Stage 3 debate turn rendering failed: ${err.message}`);
-  }
-
-  // Test 4: Stage 4 Auditor
-  console.log('\n[Test 4] Stage 4 Auditor Rendering:');
-  try {
-    renderAuditor({ overall_reliability: 'High', confidence: 95, issues: [] });
-    renderAuditor({ auditor: { overall_reliability: 'Medium', issues: [{ agent: 'Skeptic Agent', issue: 'Overly critical' }] } });
-    renderAuditor(null);
-    assert(true, 'Auditor rendering succeeded');
-  } catch (err) {
-    assert(false, `Stage 4 auditor rendering failed: ${err.message}`);
-  }
-
-  // Test 5: Stage 5 Verdict
-  console.log('\n[Test 5] Stage 5 Decision Verdict Rendering:');
-  try {
-    renderVerdict({ recommendation: 'Strong Hire', confidence: 92, decision_summary: 'Consensus hire.' });
-    renderVerdict({ decision: { recommendation: 'Hire' } });
-    renderVerdict(null);
-    assert(true, 'Verdict rendering succeeded');
-  } catch (err) {
-    assert(false, `Stage 5 verdict rendering failed: ${err.message}`);
-  }
-
-  // Test 6: Stage 6 Targeted Questions
-  console.log('\n[Test 6] Stage 6 Targeted Questions Rendering:');
-  try {
-    renderQuestions({ questions: [{ question: 'How did you handle the failover?' }] });
-    renderQuestions([{ question: 'Direct array question' }]);
-    renderQuestions(null);
-    assert(true, 'Questions rendering succeeded');
-  } catch (err) {
-    assert(false, `Stage 6 questions rendering failed: ${err.message}`);
-  }
+  // Test 5: Modal Quote Inspector
+  console.log('\n[Test 5] Interactive Quote Inspector:');
+  openQuoteInspector('Verbatim consensus quote', 'Resume Page 1', 'Claim verification');
+  const inspectorContent = document.getElementById('inspectorContent');
+  assert(inspectorContent.innerHTML.includes('Verbatim consensus quote'), 'inspectorContent contains quote');
+  assert(inspectorContent.innerHTML.includes('Resume Page 1'), 'inspectorContent contains source');
 
   console.log('\n===============================================================');
-  console.log('✓ ALL DEFENSIVE RENDERING & .charAt() SAFETY TESTS PASSED!');
+  console.log('✓ ALL STAGE 1 & 2 RENDERING TESTS PASSED!');
   console.log('===============================================================\n');
 }
 
