@@ -26,6 +26,10 @@ export async function extractDocumentText({ buffer, filename = '', mimeType = ''
     if (!text) {
       throw new Error(`The uploaded text file '${filename}' is empty.`);
     }
+
+    console.log(`[Document Extractor] Extracted TXT file '${filename}' (Total: ${text.length} chars)`);
+    console.log(`[Document Extractor] First 300 chars of '${filename}':\n${text.substring(0, 300)}\n---`);
+
     return {
       text,
       charCount: text.length,
@@ -44,6 +48,10 @@ export async function extractDocumentText({ buffer, filename = '', mimeType = ''
       if (!text) {
         throw new Error(`No extractable text found in DOCX file '${filename}'.`);
       }
+
+      console.log(`[Document Extractor] Extracted DOCX file '${filename}' (Total: ${text.length} chars)`);
+      console.log(`[Document Extractor] First 300 chars of '${filename}':\n${text.substring(0, 300)}\n---`);
+
       return {
         text,
         charCount: text.length,
@@ -77,6 +85,9 @@ export async function extractDocumentText({ buffer, filename = '', mimeType = ''
       if (!text) {
         throw new Error(`No extractable text found in PDF document '${filename}'.`);
       }
+
+      console.log(`[Document Extractor] Extracted PDF file '${filename}' (${pageCount} pages, Total: ${text.length} chars)`);
+      console.log(`[Document Extractor] First 300 chars of '${filename}':\n${text.substring(0, 300)}\n---`);
 
       return {
         text,

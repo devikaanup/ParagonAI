@@ -55,7 +55,14 @@ ${resumeText?.trim() || 'No resume text provided.'}
 ${transcriptText?.trim() || 'No interview transcript provided.'}
 `;
 
-  console.log('[Pipeline Stage 1] Running Profile Builder...');
+  console.log('\n[Pipeline Stage 1] Profile Builder Input Summary:');
+  console.log(`  - Resume text length: ${resumeText?.trim().length || 0} chars`);
+  console.log(`  - Transcript text length: ${transcriptText?.trim().length || 0} chars`);
+  console.log(`  - Job description length: ${jobDescriptionText?.trim().length || 0} chars`);
+  console.log('==================== STAGE 1 FULL PROMPT START ====================');
+  console.log(promptContent);
+  console.log('==================== STAGE 1 FULL PROMPT END ====================\n');
+
   const result = await generateGeminiContent({
     systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${SYSTEM_INSTRUCTIONS.PROFILE_BUILDER}`,
     contents: promptContent,

@@ -206,7 +206,9 @@ import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from './lib/demoData.js';
         setStatus(dz, "Unsupported format. Use PDF, DOCX, or TXT.", true);
         return;
       }
-      setStatus(dz, `Uploading & extracting ${file.name} on server…`, false);
+      console.log(`[Client Upload] Successfully extracted '${file.name}' on server (Total: ${result.charCount} chars, ${result.pageCount || 1} page(s))`);
+      console.log(`[Client Upload] First 300 chars of '${file.name}':\n${result.text.substring(0, 300)}\n---`);
+
       try {
         const result = await extractFileServerSide(file);
         target.value = result.text;
@@ -357,6 +359,11 @@ EXPERIENCE: 10 years distributed security systems.`;
       return;
     }
 
+    console.log(`\n[Client Evaluation Launch] Submitting Candidate Data:`);
+    console.log(`  - Resume: ${resumeText.length} chars (First 300 chars:\n${resumeText.substring(0, 300)}\n)`);
+    console.log(`  - Transcript: ${transcriptText.length} chars (First 300 chars:\n${transcriptText.substring(0, 300)}\n)`);
+    console.log(`  - Role: ${jobDescriptionText.length} chars`);
+
     runBtn.classList.add("is-processing");
     runBtn.textContent = "Evaluating Panel…";
     runBtn.disabled = true;
@@ -389,6 +396,7 @@ EXPERIENCE: 10 years distributed security systems.`;
       }
 
       const evaluationData = await response.json();
+      console.log('[Client Evaluation Success] Received candidate profile:', evaluationData.evaluation_context?.candidate?.name);
 
       // Animate stages completing
       setStageStatus('profile', 'completed', 'Complete');
@@ -401,11 +409,8 @@ EXPERIENCE: 10 years distributed security systems.`;
       renderEvaluation(evaluationData, evaluationData.isGoldenRun || evaluationData.isFallback);
     } catch (err) {
       console.error("Evaluation error:", err);
-      runHint.textContent = `Pipeline error: ${err.message}. Loading Golden Run fallback for preview.`;
-      setStageStatus('profile', 'failed', 'Fallback');
-      setTimeout(() => {
-        renderEvaluation(GOLDEN_RUN_OUTPUT, true);
-      }, 800);
+      runHint.textContent = `Pipeline error: ${err.message}.`;
+      setStageStatus('profile', 'failed', 'Error');
     } finally {
       runBtn.classList.remove("is-processing");
       runBtn.textContent = "Run The Panel";
@@ -800,19 +805,6 @@ EXPERIENCE: 10 years distributed security systems.`;
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
-  }
-
-  // Restore past run from localStorage on page load if present
-  try {
-    const saved = localStorage.getItem("the_panel_last_run");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.evaluation_context) {
-        renderEvaluation(parsed, parsed.isGoldenRun || parsed.isFallback);
-      }
-    }
-  } catch (e) {
-    console.log("No previous run restored:", e);
   }
 
   updateBtn();

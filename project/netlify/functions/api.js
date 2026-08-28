@@ -180,21 +180,12 @@ export async function handler(event, context) {
         });
       }
 
-      try {
-        const fullResult = await runFullPipeline({
-          resumeText,
-          transcriptText,
-          jobDescriptionText
-        });
-        return jsonResponse(200, fullResult);
-      } catch (pipelineErr) {
-        console.warn('[API] Live pipeline execution encountered notice:', pipelineErr.message);
-        return jsonResponse(200, {
-          ...GOLDEN_RUN_OUTPUT,
-          isFallback: true,
-          fallbackReason: `Live API notice (${pipelineErr.message.substring(0, 100)}) — displaying verified golden benchmark dataset`
-        });
-      }
+      const fullResult = await runFullPipeline({
+        resumeText,
+        transcriptText,
+        jobDescriptionText
+      });
+      return jsonResponse(200, fullResult);
     }
 
     return jsonResponse(404, { error: `Route not found: ${method} ${path}` });

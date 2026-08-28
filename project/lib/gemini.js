@@ -160,6 +160,11 @@ export async function generateGeminiContent({
             throw new Error(`Empty response from Gemini API model ${modelName}`);
           }
 
+          console.log(`\n[Gemini Raw Response] Model: ${modelName} (SDK) | Response length: ${text.length} chars`);
+          console.log('==================== RAW RESPONSE START ====================');
+          console.log(text);
+          console.log('==================== RAW RESPONSE END ====================\n');
+
           return {
             text,
             model: modelName,
@@ -215,6 +220,11 @@ export async function generateGeminiContent({
           if (!responseText) {
             throw new Error(`Empty REST candidate text from ${modelName}`);
           }
+
+          console.log(`\n[Gemini Raw Response] Model: ${modelName} (REST) | Response length: ${responseText.length} chars`);
+          console.log('==================== RAW RESPONSE START ====================');
+          console.log(responseText);
+          console.log('==================== RAW RESPONSE END ====================\n');
 
           return {
             text: responseText,
