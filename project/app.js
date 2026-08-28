@@ -461,37 +461,253 @@ EXPERIENCE: 10 years distributed security systems.`;
     // Scroll down to tracker
     pipelineTracker.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
+    const tClientStart = performance.now();
     try {
+      // ===== STAGE 1: Profile Builder =====
       setStageStatus('profile', 'running', 'Extracting');
+      pipelineTracker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const tProfile = performance.now();
+      console.log('\n[Client Profile] Starting Profile Builder...');
 
-      // Call API
-      const response = await fetch('/api/evaluate/full', {
+      const profileRes = await fetch('/api/evaluate/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeText, transcriptText, jobDescriptionText })
+      });
+      if (!profileRes.ok) {
+        const errJson = await profileRes.json().catch(() => ({}));
+        throw new Error(errJson.error || `Profile extraction failed (${profileRes.status})`);
+      }
+      const { evaluationContext, modelUsed, isCached } = await profileRes.json();
+      const profileDur = ((performance.now() - tProfile) / 1000).toFixed(1);
+      console.log(`[Client Profile] Complete in ${profileDur}s (Candidate: ${evaluationContext.candidate?.name}, Model: ${modelUsed}${isCached ? ' [CACHED]' : ''})`);
+
+      setStageStatus('profile', 'completed', isCached ? 'Cached' : 'Complete');
+
+      // Make results container visible immediately and display candidate profile
+      if (resultsSection) resultsSection.style.display = "block";
+      renderProfileContext(evaluationContext);
+
+      // ===== STAGE 2: 4 Independent Agents (PARALLEL EXECUTION) =====
+      setStageStatus('opinions', 'running', '4 in Parallel');
+      const AGENT_KEYS = [
+        { key: 'technical', name: 'Technical Agent' },
+        { key: 'hr', name: 'HR / Culture Agent' },
+        { key: 'manager', name: 'Hiring Manager Agent' },
+        { key: 'skeptic', name: 'Skeptic Agent' }
+      ];
+
+      const tOpinionsStart = performance.now();
+      console.log('\n[Client 4 Agents] Launching 4 independent opinions concurrently...');
+      let completedCount = 0;
+
+      const opinionPromises = AGENT_KEYS.map(async (ag) => {
+        const tAgent = performance.now();
+        console.log(`[Client ${ag.name}] started`);
+        try {
+          const opRes = await fetch('/api/evaluate/opinion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ evaluationContext, agentKey: ag.key })
+          });
+          if (!opRes.ok) {
+            const errJson = await opRes.json().catch(() => ({}));
+            throw new Error(errJson.error || `Opinion for ${ag.name} failed (${opRes.status})`);
+          }
+          const { opinion } = await opRes.json();
+          completedCount++;
+          const dur = ((performance.now() - tAgent) / 1000).toFixed(1);
+          console.log(`[Client ${ag.name}] completed in ${dur}s (Score: ${opinion.score}/100)`);
+          setStageStatus('opinions', 'running', `${completedCount}/4 Done`);
+          return opinion;
+        } catch (err) {
+          completedCount++;
+          console.error(`[Client ${ag.name}] error:`, err.message);
+          return {
+            agent: ag.name,
+            error: err.message,
+            score: null,
+            verdict: 'Unavailable',
+            summary: `Evaluation unavailable: ${err.message}`,
+            evidence_quotes: [],
+            reasoning: 'Evaluation could not be completed.'
+          };
+        }
+      });
+
+      const opinions = await Promise.all(opinionPromises);
+      const opinionsDur = ((performance.now() - tOpinionsStart) / 1000).toFixed(1);
+      console.log(`[Client 4 Agents] Completed 4 opinions in ${opinionsDur}s total (parallel)\n`);
+
+      setStageStatus('opinions', 'completed', '4 Done');
+      renderOpinions(opinions, evaluationContext);
+
+      // ===== STAGE 3: Live Sequential Committee Deliberation =====
+      setStageStatus('debate', 'running', 'Turn 1/4');
+      const debateContainer = document.getElementById("debateContainer");
+      const evidenceBoardList = document.getElementById("evidenceBoardList");
+      const statusIndicator = document.getElementById("debateStatusIndicator");
+
+      if (debateContainer) debateContainer.innerHTML = '';
+      if (evidenceBoardList) evidenceBoardList.innerHTML = '<div class="evidence-empty-hint">Awaiting deliberation citations…</div>';
+
+      const DEBATE_TURNS_CONFIG = [
+        { turnNumber: 1, turnType: 'Challenge', personaKey: 'technical', agentName: 'Technical Agent' },
+        { turnNumber: 2, turnType: 'Response', personaKey: 'hr', agentName: 'HR / Culture Agent' },
+        { turnNumber: 3, turnType: 'Reassessment', personaKey: 'manager', agentName: 'Hiring Manager Agent' },
+        { turnNumber: 4, turnType: 'Final Position', personaKey: 'skeptic', agentName: 'Skeptic Agent' }
+      ];
+
+      updateCommitteeBar({ activeKey: null, opinions, turns: [] });
+
+      const debateTurns = [];
+      const allCitedEvidence = [];
+      const tDebateStart = performance.now();
+
+      for (let i = 0; i < DEBATE_TURNS_CONFIG.length; i++) {
+        const turnConfig = DEBATE_TURNS_CONFIG[i];
+        const tTurn = performance.now();
+        setStageStatus('debate', 'running', `Turn ${i + 1}/4`);
+        if (statusIndicator) {
+          statusIndicator.textContent = `Turn ${turnConfig.turnNumber} of 4: ${turnConfig.turnType} (${turnConfig.agentName})`;
+        }
+
+        updateCommitteeBar({
+          activeKey: turnConfig.personaKey,
+          turnNumber: turnConfig.turnNumber,
+          turnType: turnConfig.turnType,
+          opinions,
+          turns: debateTurns
+        });
+
+        const turnRes = await fetch('/api/evaluate/debate/turn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            evaluationContext,
+            opinions,
+            debateTranscript: debateTurns,
+            personaKey: turnConfig.personaKey,
+            turnNumber: turnConfig.turnNumber,
+            turnType: turnConfig.turnType
+          })
+        });
+
+        if (!turnRes.ok) {
+          const errJson = await turnRes.json().catch(() => ({}));
+          throw new Error(errJson.error || `Debate turn ${turnConfig.turnNumber} failed (${turnRes.status})`);
+        }
+
+        const { turn } = await turnRes.json();
+        debateTurns.push(turn);
+        const turnDur = ((performance.now() - tTurn) / 1000).toFixed(1);
+        console.log(`[Client Debate Turn ${turnConfig.turnNumber}] completed in ${turnDur}s (${turn.agent})`);
+
+        renderSingleDebateTurnCard(turn, i, evaluationContext);
+
+        if (Array.isArray(turn.cited_evidence) && turn.cited_evidence.length > 0) {
+          turn.cited_evidence.forEach((ev) => {
+            allCitedEvidence.push({ ...ev, agent: turn.agent });
+          });
+          updateEvidenceBoard(allCitedEvidence, evaluationContext);
+        }
+
+        updateCommitteeBar({ activeKey: null, opinions, turns: debateTurns });
+      }
+
+      const debateDur = ((performance.now() - tDebateStart) / 1000).toFixed(1);
+      console.log(`[Client Debate] Completed 4 turns in ${debateDur}s total\n`);
+      setStageStatus('debate', 'completed', 'Complete');
+      if (statusIndicator) statusIndicator.textContent = 'Deliberation Complete (4/4 Turns)';
+
+      // ===== STAGE 4: Reasoning Auditor =====
+      setStageStatus('auditor', 'running', 'Auditing');
+      const tAudit = performance.now();
+      const auditRes = await fetch('/api/evaluate/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ evaluationContext, opinions, debateTranscript: debateTurns })
+      });
+      if (!auditRes.ok) {
+        const errJson = await auditRes.json().catch(() => ({}));
+        throw new Error(errJson.error || `Auditor failed (${auditRes.status})`);
+      }
+      const { auditor } = await auditRes.json();
+      const auditDur = ((performance.now() - tAudit) / 1000).toFixed(1);
+      console.log(`[Client Auditor] completed in ${auditDur}s (Reliability: ${auditor.overall_reliability})`);
+      setStageStatus('auditor', 'completed', 'Audited');
+      renderAuditor(auditor);
+
+      // ===== STAGE 5: Decision Synthesizer =====
+      setStageStatus('decision', 'running', 'Synthesizing');
+      const tSynth = performance.now();
+      const synthRes = await fetch('/api/evaluate/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          resumeText,
-          transcriptText,
-          jobDescriptionText
+          evaluationContext,
+          opinions,
+          debateTranscript: debateTurns,
+          auditorReport: auditor
         })
       });
+      if (!synthRes.ok) {
+        const errJson = await synthRes.json().catch(() => ({}));
+        throw new Error(errJson.error || `Decision synthesizer failed (${synthRes.status})`);
+      }
+      const { decision } = await synthRes.json();
+      const synthDur = ((performance.now() - tSynth) / 1000).toFixed(1);
+      console.log(`[Client Decision] completed in ${synthDur}s (Recommendation: ${decision.recommendation})`);
+      setStageStatus('decision', 'completed', 'Synthesized');
+      renderVerdict(decision);
 
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.error || `HTTP ${response.status}: Pipeline error`);
+      // ===== STAGE 6: Targeted Questions =====
+      setStageStatus('questions', 'running', 'Generating');
+      const tQuest = performance.now();
+      const questRes = await fetch('/api/evaluate/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evaluationContext,
+          unresolvedDisagreements: decision.unresolved_disagreements
+        })
+      });
+      if (!questRes.ok) {
+        const errJson = await questRes.json().catch(() => ({}));
+        throw new Error(errJson.error || `Question generator failed (${questRes.status})`);
+      }
+      const { questions } = await questRes.json();
+      const questDur = ((performance.now() - tQuest) / 1000).toFixed(1);
+      console.log(`[Client Questions] completed in ${questDur}s (${questions.questions?.length} questions)`);
+      setStageStatus('questions', 'completed', 'Generated');
+      renderQuestions(questions);
+
+      // Complete Evaluation
+      const totalElapsed = ((performance.now() - tClientStart) / 1000).toFixed(1);
+      console.log(`\n===============================================================`);
+      console.log(`[Client Evaluation Complete] Total Pipeline Duration: ${totalElapsed}s`);
+      console.log(`===============================================================\n`);
+
+      const fullEvaluation = {
+        runId,
+        evaluation_context: evaluationContext,
+        opinions,
+        debate: debateTurns,
+        auditor,
+        decision,
+        questions,
+        status: 'completed',
+        durationSec: totalElapsed
+      };
+      currentEvaluation = fullEvaluation;
+      try {
+        localStorage.setItem("the_panel_last_run", JSON.stringify(fullEvaluation));
+        localStorage.setItem(`the_panel_run_${runId}`, JSON.stringify(fullEvaluation));
+      } catch (e) {
+        console.warn("Could not save to localStorage:", e);
       }
 
-      const evaluationData = await response.json();
-      console.log('[Client Evaluation Success] Received candidate profile:', evaluationData.evaluation_context?.candidate?.name);
-
-      // Animate stages completing
-      setStageStatus('profile', 'completed', 'Complete');
-      setStageStatus('opinions', 'completed', '4 Done');
-      setStageStatus('debate', 'completed', 'Complete');
-      setStageStatus('auditor', 'completed', 'Audited');
-      setStageStatus('decision', 'completed', 'Synthesized');
-      setStageStatus('questions', 'completed', 'Generated');
-
-      renderEvaluation(evaluationData, evaluationData.isGoldenRun || evaluationData.isFallback);
+      runHint.textContent = `✓ Evaluation Complete for ${evaluationContext.candidate?.name || 'candidate'} in ${totalElapsed}s.`;
     } catch (err) {
       console.error("Evaluation error:", err);
       runHint.textContent = `Pipeline error: ${err.message}.`;

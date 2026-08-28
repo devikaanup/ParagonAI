@@ -3,10 +3,14 @@
  * Implements 6 distinct pipeline stages and 12 isolated/sequential Gemini API calls.
  */
 
+import crypto from 'crypto';
 import { SYSTEM_INSTRUCTIONS } from './prompts.js';
 import { generateGeminiContent } from './gemini.js';
 import { validateAgentEvidence, validateQuote } from './evidenceValidator.js';
 import { GOLDEN_RUN_OUTPUT } from './demoData.js';
+
+// Profile in-memory cache (Optimization 8)
+const profileCache = new Map();
 
 export const AGENT_PERSONAS = [
   {
@@ -36,12 +40,27 @@ export const AGENT_PERSONAS = [
 ];
 
 /**
- * Stage [1] Profile Builder (1x Gemini call)
+ * Stage [1] Profile Builder (1x Gemini call, cached per document hash)
  */
 export async function runProfileBuilder({ resumeText, transcriptText, jobDescriptionText }) {
   if (!resumeText?.trim() && !transcriptText?.trim()) {
     throw new Error('Either resume or transcript must be provided.');
   }
+
+  const rawKey = `${jobDescriptionText || ''}::${resumeText || ''}::${transcriptText || ''}`;
+  const cacheHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+
+  if (profileCache.has(cacheHash)) {
+    console.log(`[PROFILE] Cache hit (hash: ${cacheHash.substring(0, 8)}). Reusing extracted context.`);
+    return {
+      evaluationContext: profileCache.get(cacheHash),
+      modelUsed: 'cache',
+      isCached: true
+    };
+  }
+
+  const tStart = performance.now();
+  console.log('\n[PROFILE] started');
 
   const promptContent = `### UNTRUSTED CANDIDATE DATA TO PARSE:
 
@@ -55,18 +74,10 @@ ${resumeText?.trim() || 'No resume text provided.'}
 ${transcriptText?.trim() || 'No interview transcript provided.'}
 `;
 
-  console.log('\n[Pipeline Stage 1] Profile Builder Input Summary:');
-  console.log(`  - Resume text length: ${resumeText?.trim().length || 0} chars`);
-  console.log(`  - Transcript text length: ${transcriptText?.trim().length || 0} chars`);
-  console.log(`  - Job description length: ${jobDescriptionText?.trim().length || 0} chars`);
-  console.log('==================== STAGE 1 FULL PROMPT START ====================');
-  console.log(promptContent);
-  console.log('==================== STAGE 1 FULL PROMPT END ====================\n');
-
   const result = await generateGeminiContent({
     systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${SYSTEM_INSTRUCTIONS.PROFILE_BUILDER}`,
     contents: promptContent,
-    preferredModel: 'gemini-3.6-flash',
+    preferredModel: 'gemini-3.5-flash-lite',
     temperature: 0.1,
     jsonMode: true
   });
@@ -75,6 +86,10 @@ ${transcriptText?.trim() || 'No interview transcript provided.'}
   if (!evaluationContext || !evaluationContext.role || !evaluationContext.candidate) {
     throw new Error('Profile Builder returned invalid structured context schema.');
   }
+
+  profileCache.set(cacheHash, evaluationContext);
+  const dur = ((performance.now() - tStart) / 1000).toFixed(1);
+  console.log(`[PROFILE] completed in ${dur}s (Model: ${result.model})\n`);
 
   return {
     evaluationContext,
@@ -97,11 +112,10 @@ ${JSON.stringify(evaluationContext, null, 2)}
 
 Provide your independent evaluation strictly in JSON format as specified.`;
 
-  console.log(`[Pipeline Stage 2] Running isolated call for: ${agentPersona.name}...`);
   const result = await generateGeminiContent({
     systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${agentPersona.systemPrompt}`,
     contents: isolatedContent,
-    preferredModel: 'gemini-3.6-flash',
+    preferredModel: 'gemini-3.5-flash',
     temperature: 0.2,
     jsonMode: true
   });
@@ -124,12 +138,15 @@ Provide your independent evaluation strictly in JSON format as specified.`;
 }
 
 /**
- * Stage [2] Run all 4 Independent Agents (4 genuinely isolated Gemini calls)
+ * Stage [2] Run all 4 Independent Agents IN PARALLEL (4 genuinely isolated Gemini calls)
  */
 export async function runAllIndependentAgents({ evaluationContext, rawSourceText = '', onProgress = null }) {
-  const opinions = [];
+  const tStart = performance.now();
+  console.log('\n[4 AGENTS] Starting parallel evaluation across 4 personas...');
+  AGENT_PERSONAS.forEach((p) => console.log(`[${p.name.toUpperCase()}] started`));
 
-  for (const persona of AGENT_PERSONAS) {
+  const promises = AGENT_PERSONAS.map(async (persona) => {
+    const tAgent = performance.now();
     try {
       if (onProgress) onProgress({ agent: persona.name, status: 'evaluating' });
       const opinion = await runIndependentAgent({
@@ -137,11 +154,14 @@ export async function runAllIndependentAgents({ evaluationContext, rawSourceText
         evaluationContext,
         rawSourceText
       });
-      opinions.push(opinion);
+      const dur = ((performance.now() - tAgent) / 1000).toFixed(1);
+      console.log(`[${persona.name.toUpperCase()}] completed in ${dur}s (Score: ${opinion.score}/100, Model: ${opinion.modelUsed})`);
       if (onProgress) onProgress({ agent: persona.name, status: 'completed', opinion });
+      return opinion;
     } catch (err) {
-      console.error(`[Pipeline Stage 2] Error evaluating ${persona.name}:`, err.message);
-      opinions.push({
+      const dur = ((performance.now() - tAgent) / 1000).toFixed(1);
+      console.error(`[${persona.name.toUpperCase()}] failed after ${dur}s:`, err.message);
+      const fallback = {
         agent: persona.name,
         error: err.message,
         score: null,
@@ -152,10 +172,15 @@ export async function runAllIndependentAgents({ evaluationContext, rawSourceText
         strengths: [],
         concerns: [`Agent failed with error: ${err.message}`],
         reasoning: 'Evaluation could not be completed.'
-      });
+      };
       if (onProgress) onProgress({ agent: persona.name, status: 'failed', error: err.message });
+      return fallback;
     }
-  }
+  });
+
+  const opinions = await Promise.all(promises);
+  const totalDur = ((performance.now() - tStart) / 1000).toFixed(1);
+  console.log(`[4 AGENTS] completed in ${totalDur}s total (parallel)\n`);
 
   return opinions;
 }
@@ -203,14 +228,19 @@ ${initialScore}
 
 Engage directly with the other agents' specific arguments, address agreements/disagreements by name, cite specific claims/quotes, and state whether your position has changed. Output strictly valid JSON.`;
 
-  console.log(`[Pipeline Stage 3] Running Debate Turn ${turnNumber} (${turnType}) for ${persona.name}...`);
+  const tStart = performance.now();
+  console.log(`[DEBATE TURN ${turnNumber}] (${turnType}) ${persona.name} started`);
+
   const result = await generateGeminiContent({
     systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${debatePrompt}`,
     contents: contextPayload,
-    preferredModel: 'gemini-3.6-flash',
+    preferredModel: 'gemini-3.5-flash',
     temperature: 0.25,
     jsonMode: true
   });
+
+  const dur = ((performance.now() - tStart) / 1000).toFixed(1);
+  console.log(`[DEBATE TURN ${turnNumber}] completed in ${dur}s (Model: ${result.model})`);
 
   const turn = result.data || {};
   turn.agent = persona.name;
@@ -225,6 +255,7 @@ Engage directly with the other agents' specific arguments, address agreements/di
   turn.cited_evidence = Array.isArray(turn.cited_evidence) ? turn.cited_evidence : [];
   turn.agreements = Array.isArray(turn.agreements) ? turn.agreements : [];
   turn.disagreements = Array.isArray(turn.disagreements) ? turn.disagreements : [];
+  turn.modelUsed = result.model;
 
   return turn;
 }
@@ -234,6 +265,8 @@ Engage directly with the other agents' specific arguments, address agreements/di
  * Each agent receives: evaluation_context, all 4 independent opinions, and accumulated transcript.
  */
 export async function runDebateRound({ evaluationContext, opinions, onTurnComplete = null }) {
+  const tStart = performance.now();
+  console.log('\n[DEBATE] Starting sequential 4-turn committee deliberation...');
   const debateTranscript = [];
 
   for (let i = 0; i < DEBATE_TURNS_CONFIG.length; i++) {
@@ -254,9 +287,8 @@ export async function runDebateRound({ evaluationContext, opinions, onTurnComple
 
       debateTranscript.push(turn);
       if (onTurnComplete) onTurnComplete(turn);
-      await new Promise((res) => setTimeout(res, 800));
     } catch (err) {
-      console.error(`[Pipeline Stage 3] Error during debate turn ${config.turnNumber} for ${persona.name}:`, err.message);
+      console.error(`[DEBATE TURN ${config.turnNumber}] Error for ${persona.name}:`, err.message);
       const fallbackTurn = {
         agent: persona.name,
         turn_number: config.turnNumber,
@@ -278,6 +310,8 @@ export async function runDebateRound({ evaluationContext, opinions, onTurnComple
     }
   }
 
+  const totalDur = ((performance.now() - tStart) / 1000).toFixed(1);
+  console.log(`[DEBATE] completed in ${totalDur}s total (4 turns)\n`);
   return debateTranscript;
 }
 
@@ -286,6 +320,9 @@ export async function runDebateRound({ evaluationContext, opinions, onTurnComple
  * Non-voting reasoning auditor checking for cherry-picking, unsupported leaps, or bias.
  */
 export async function runAuditor({ evaluationContext, opinions, debateTranscript }) {
+  const tStart = performance.now();
+  console.log('[AUDITOR] started');
+
   const auditPayload = `### EVALUATION CONTEXT:
 ${JSON.stringify(evaluationContext, null, 2)}
 
@@ -297,14 +334,16 @@ ${JSON.stringify(debateTranscript, null, 2)}
 
 Audit the reasoning quality, evidence grounding, and bias risks. Output strictly valid JSON.`;
 
-  console.log('[Pipeline Stage 4] Running Auditor...');
   const result = await generateGeminiContent({
     systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${SYSTEM_INSTRUCTIONS.AUDITOR}`,
     contents: auditPayload,
-    preferredModel: 'gemini-3.6-flash',
+    preferredModel: 'gemini-3.5-flash-lite',
     temperature: 0.1,
     jsonMode: true
   });
+
+  const dur = ((performance.now() - tStart) / 1000).toFixed(1);
+  console.log(`[AUDITOR] completed in ${dur}s (Model: ${result.model})\n`);
 
   return result.data;
 }
@@ -314,6 +353,9 @@ Audit the reasoning quality, evidence grounding, and bias risks. Output strictly
  * Dedicated comparative reasoning call; NEVER averages scores.
  */
 export async function runDecisionSynthesizer({ evaluationContext, opinions, debateTranscript, auditorReport }) {
+  const tStart = performance.now();
+  console.log('[SYNTHESIS] started');
+
   const synthesisPayload = `### EVALUATION CONTEXT:
 ${JSON.stringify(evaluationContext, null, 2)}
 
@@ -328,30 +370,18 @@ ${JSON.stringify(auditorReport, null, 2)}
 
 CRITICAL REMINDER: Do NOT average scores or use majority voting. Perform rigorous comparative evidence weighting and identify resolved and unresolved disagreements. Output strictly valid JSON.`;
 
-  console.log('[Pipeline Stage 5] Running Decision Synthesizer...');
   const result = await generateGeminiContent({
     systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${SYSTEM_INSTRUCTIONS.DECISION_SYNTHESIZER}`,
     contents: synthesisPayload,
-    preferredModel: 'gemini-3.6-flash',
+    preferredModel: 'gemini-3.5-flash',
     temperature: 0.2,
     jsonMode: true
   });
 
-  const decision = result.data;
-  // Validation: Ensure comparative reasoning exists and not a mere score repeat
-  if (!decision.decision_summary || decision.decision_summary.length < 30) {
-    console.warn('[Pipeline Stage 5] Decision summary too short; retrying synthesis once...');
-    const retryResult = await generateGeminiContent({
-      systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${SYSTEM_INSTRUCTIONS.DECISION_SYNTHESIZER}`,
-      contents: synthesisPayload + '\n\nEnsure decision_summary provides at least two detailed paragraphs explaining why specific evidence prevailed.',
-      preferredModel: 'gemini-3.6-flash',
-      temperature: 0.3,
-      jsonMode: true
-    });
-    return retryResult.data;
-  }
+  const dur = ((performance.now() - tStart) / 1000).toFixed(1);
+  console.log(`[SYNTHESIS] completed in ${dur}s (Model: ${result.model})\n`);
 
-  return decision;
+  return result.data;
 }
 
 /**
@@ -359,6 +389,9 @@ CRITICAL REMINDER: Do NOT average scores or use majority voting. Perform rigorou
  * Generates 2-3 questions tied strictly to unresolved disagreements.
  */
 export async function runQuestionGenerator({ evaluationContext, unresolvedDisagreements }) {
+  const tStart = performance.now();
+  console.log('[QUESTIONS] started');
+
   const disagreementsToUse = Array.isArray(unresolvedDisagreements) && unresolvedDisagreements.length > 0
     ? unresolvedDisagreements
     : [{
@@ -377,14 +410,16 @@ ${JSON.stringify(disagreementsToUse, null, 2)}
 
 Generate 2 to 3 targeted, neutral, evidence-based follow-up interview questions corresponding directly to these unresolved disagreements. Output strictly valid JSON.`;
 
-  console.log('[Pipeline Stage 6] Running Interview Question Generator...');
   const result = await generateGeminiContent({
     systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${SYSTEM_INSTRUCTIONS.QUESTION_GENERATOR}`,
     contents: questionPayload,
-    preferredModel: 'gemini-3.6-flash',
+    preferredModel: 'gemini-3.5-flash-lite',
     temperature: 0.3,
     jsonMode: true
   });
+
+  const dur = ((performance.now() - tStart) / 1000).toFixed(1);
+  console.log(`[QUESTIONS] completed in ${dur}s (Model: ${result.model})\n`);
 
   return result.data;
 }
@@ -398,9 +433,13 @@ export async function runFullPipeline({
   jobDescriptionText,
   onStageUpdate = null
 }) {
+  const tPipelineStart = performance.now();
   const runId = `run_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  const startTime = Date.now();
   const rawCombinedText = `${jobDescriptionText || ''}\n${resumeText || ''}\n${transcriptText || ''}`;
+
+  console.log('\n===============================================================');
+  console.log(`[PIPELINE START] Launching Full Evaluation (Run ID: ${runId})`);
+  console.log('===============================================================');
 
   const state = {
     runId,
@@ -421,8 +460,6 @@ export async function runFullPipeline({
     if (onStageUpdate) onStageUpdate({ stage: stageName, data: state });
   };
 
-  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-
   // Stage 1: Profile Builder
   updateStage('profile', { status: 'in_progress' });
   const { evaluationContext, modelUsed } = await runProfileBuilder({
@@ -433,9 +470,8 @@ export async function runFullPipeline({
   state.evaluation_context = evaluationContext;
   state.profileModel = modelUsed;
   updateStage('profile', { status: 'completed', evaluationContext });
-  await sleep(1000);
 
-  // Stage 2: Independent Agent Opinions (4 isolated calls)
+  // Stage 2: Independent Agent Opinions (4 PARALLEL calls)
   updateStage('opinions', { status: 'in_progress', agentStatuses: {} });
   const opinions = await runAllIndependentAgents({
     evaluationContext,
@@ -450,7 +486,6 @@ export async function runFullPipeline({
   const availableAgentsCount = opinions.filter((op) => !op.error).length;
   state.panelLabel = availableAgentsCount === 4 ? '4-agent panel (Full)' : `${availableAgentsCount}-agent panel (Partial)`;
   updateStage('opinions', { status: 'completed', opinions });
-  await sleep(1000);
 
   // Stage 3: Debate (4 sequential calls)
   updateStage('debate', { status: 'in_progress', turns: [] });
@@ -465,7 +500,6 @@ export async function runFullPipeline({
   });
   state.debate = debateTranscript;
   updateStage('debate', { status: 'completed', debate: debateTranscript });
-  await sleep(1000);
 
   // Stage 4: Auditor (1 call)
   updateStage('auditor', { status: 'in_progress' });
@@ -476,7 +510,6 @@ export async function runFullPipeline({
   });
   state.auditor = auditorReport;
   updateStage('auditor', { status: 'completed', auditor: auditorReport });
-  await sleep(1000);
 
   // Stage 5: Decision Synthesizer (1 call)
   updateStage('decision', { status: 'in_progress' });
@@ -488,7 +521,6 @@ export async function runFullPipeline({
   });
   state.decision = decision;
   updateStage('decision', { status: 'completed', decision });
-  await sleep(1000);
 
   // Stage 6: Interview Questions (1 call)
   updateStage('questions', { status: 'in_progress' });
@@ -500,7 +532,12 @@ export async function runFullPipeline({
   updateStage('questions', { status: 'completed', questions });
 
   state.status = 'completed';
-  state.durationMs = Date.now() - startTime;
+  const totalElapsed = ((performance.now() - tPipelineStart) / 1000).toFixed(1);
+  state.durationMs = Math.round(performance.now() - tPipelineStart);
+
+  console.log('===============================================================');
+  console.log(`[PIPELINE COMPLETE] Total Pipeline Duration: ${totalElapsed}s across 12 Gemini calls`);
+  console.log('===============================================================\n');
 
   return state;
 }

@@ -8,8 +8,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const DEFAULT_MODELS = [
-  'gemini-3.6-flash',
   'gemini-3.5-flash',
+  'gemini-3.6-flash',
   'gemini-3.5-flash-lite',
   'gemini-3.7-flash',
   'gemini-flash-latest',
@@ -110,11 +110,12 @@ export function safeJsonParse(text, fallback = null) {
 export async function generateGeminiContent({
   systemInstruction = '',
   contents = '',
-  preferredModel = 'gemini-3.6-flash',
+  preferredModel = 'gemini-3.5-flash',
   temperature = 0.2,
   maxTokens = 4096,
   jsonMode = true,
-  maxRetries = 1
+  maxRetries = 1,
+  timeoutMs = 45000
 }) {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -139,7 +140,7 @@ export async function generateGeminiContent({
           await new Promise((res) => setTimeout(res, delayMs));
         }
 
-        // Try using official SDK first
+        // Try using official SDK first with timeout
         try {
           const ai = new GoogleGenAI({ apiKey });
           const config = {
@@ -151,11 +152,17 @@ export async function generateGeminiContent({
             config.responseMimeType = 'application/json';
           }
 
-          const response = await ai.models.generateContent({
+          const sdkPromise = ai.models.generateContent({
             model: modelName,
             contents: typeof contents === 'string' ? contents : JSON.stringify(contents),
             config
           });
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms waiting for ${modelName}`)), timeoutMs)
+          );
+
+          const response = await Promise.race([sdkPromise, timeoutPromise]);
 
           const text = response.text || (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text);
           if (!text) {
@@ -200,7 +207,8 @@ export async function generateGeminiContent({
           const fetchRes = await fetch(restUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(bodyPayload)
+            body: JSON.stringify(bodyPayload),
+            signal: AbortSignal.timeout(timeoutMs)
           });
 
           if (!fetchRes.ok) {
