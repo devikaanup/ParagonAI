@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Run The Panel — The Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="data-rain" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="nav-pill">
+      <div class="logo-mark" aria-hidden="true">P</div>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="agents.html">The Agents</a>
+      </nav>
+      <a href="run.html" class="cta-pill active">Run The Panel</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-head">
+      <h1 class="pixel-headline reveal">Run The Panel</h1>
+      <p class="subhead reveal">Paste a resume, interview transcript, and job description. Watch four agents evaluate independently, then debate.</p>
+    </section>
+
+    <!-- Quick action controls -->
+    <section class="try-input reveal">
+      <div class="demo-actions">
+        <button type="button" class="action-pill-btn primary-demo" id="loadDemoBtn">
+          <span>⚡ Load Demo Candidate</span>
+        </button>
+        <button type="button" class="action-pill-btn primary-demo" id="runGoldenBtn">
+          <span>🏆 Run Demo / Golden Mode</span>
+        </button>
+        <button type="button" class="action-pill-btn" id="loadInjectionBtn">
+          <span>🛡️ Test Prompt Injection Safety</span>
+        </button>
+        <button type="button" class="action-pill-btn" id="clearBtn">
+          <span>✕ Clear Inputs</span>
+        </button>
+      </div>
+
+      <div class="input-grid">
+        <!-- Resume -->
+        <div class="input-field">
+          <label>Resume</label>
+          <div class="mode-tabs" data-target="resume">
+            <button type="button" class="mode-tab active" data-mode="paste">Paste Text</button>
+            <button type="button" class="mode-tab" data-mode="upload">Upload File</button>
+          </div>
+          <div class="mode-panel" data-mode-panel="resume-paste">
+            <textarea id="resume" placeholder="Paste resume text here…" rows="10"></textarea>
+          </div>
+          <div class="mode-panel" data-mode-panel="resume-upload" hidden>
+            <div class="dropzone" data-dropzone="resume">
+              <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" hidden />
+              <div class="dropzone-inner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p class="dropzone-title">Drop your resume here</p>
+                <p class="dropzone-hint">or click to browse — PDF, DOCX, TXT</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transcript -->
+        <div class="input-field">
+          <label>Interview Transcript</label>
+          <div class="mode-tabs" data-target="transcript">
+            <button type="button" class="mode-tab active" data-mode="paste">Paste Text</button>
+            <button type="button" class="mode-tab" data-mode="upload">Upload File</button>
+          </div>
+          <div class="mode-panel" data-mode-panel="transcript-paste">
+            <textarea id="transcript" placeholder="Paste interview transcript here…" rows="10"></textarea>
+          </div>
+          <div class="mode-panel" data-mode-panel="transcript-upload" hidden>
+            <div class="dropzone" data-dropzone="transcript">
+              <input type="file" id="transcriptFile" accept=".pdf,.docx,.txt" hidden />
+              <div class="dropzone-inner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p class="dropzone-title">Drop your transcript here</p>
+                <p class="dropzone-hint">or click to browse — PDF, DOCX, TXT</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-field role-field">
+        <label>Role Being Considered For</label>
+        <div class="mode-tabs" data-target="role">
+          <button type="button" class="mode-tab active" data-mode="paste">Paste Text</button>
+          <button type="button" class="mode-tab" data-mode="upload">Upload File</button>
+        </div>
+        <div class="mode-panel" data-mode-panel="role-paste">
+          <textarea id="role" placeholder="Paste the job description or role details here…" rows="6"></textarea>
+        </div>
+        <div class="mode-panel" data-mode-panel="role-upload" hidden>
+          <div class="dropzone" data-dropzone="role">
+            <input type="file" id="roleFile" accept=".pdf,.docx,.txt" hidden />
+            <div class="dropzone-inner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <p class="dropzone-title">Drop your job description here</p>
+              <p class="dropzone-hint">or click to browse — PDF, DOCX, TXT</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <button id="runBtn" class="cta-pill cta-large cta-run" disabled>Run The Panel</button>
+      <p class="run-hint" id="runHint">Paste or upload at least a resume or transcript to begin.</p>
+
+      <!-- Live Pipeline Stage Tracker -->
+      <div id="pipelineTracker" class="pipeline-tracker" style="display: none;">
+        <div class="tracker-step" id="step-profile">
+          <span class="step-idx">01</span>
+          <div class="step-title">Profile Builder</div>
+          <span class="step-badge">Pending</span>
+        </div>
+        <div class="tracker-step" id="step-opinions">
+          <span class="step-idx">02</span>
+          <div class="step-title">4 Agents</div>
+          <span class="step-badge">Pending</span>
+        </div>
+        <div class="tracker-step" id="step-debate">
+          <span class="step-idx">03</span>
+          <div class="step-title">The Debate</div>
+          <span class="step-badge">Pending</span>
+        </div>
+        <div class="tracker-step" id="step-auditor">
+          <span class="step-idx">04</span>
+          <div class="step-title">Auditor</div>
+          <span class="step-badge">Pending</span>
+        </div>
+        <div class="tracker-step" id="step-decision">
+          <span class="step-idx">05</span>
+          <div class="step-title">Decision</div>
+          <span class="step-badge">Pending</span>
+        </div>
+        <div class="tracker-step" id="step-questions">
+          <span class="step-idx">06</span>
+          <div class="step-title">Follow-ups</div>
+          <span class="step-badge">Pending</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS CONTAINER -->
+    <section id="resultsSection" class="results" style="display: none;">
+      <!-- Top banner / actions -->
+      <div id="goldenBanner" class="golden-run-banner" style="display: none;">
+        <div>
+          <strong>🏆 Golden Demo / Cached Fallback Active</strong>
+          <p id="goldenBannerMsg">Displaying verified pre-computed benchmark dataset for Staff Distributed Systems Engineer candidate Alex Rivera.</p>
+        </div>
+        <button type="button" class="action-pill-btn" id="exitDemoBtn">Exit Demo Mode</button>
+      </div>
+
+      <div class="results-header-bar">
+        <div class="results-meta">
+          <span id="panelStatusBadge" class="panel-status-pill">4-agent panel (Full)</span>
+          <span id="runIdLabel" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: var(--muted);">Run ID: --</span>
+        </div>
+        <div class="results-meta">
+          <span class="human-assist-notice">AI assists the human hiring decision-maker. It does not replace them.</span>
+          <button type="button" class="action-pill-btn" id="newEvalBtn">⚡ Start New</button>
+          <button type="button" class="action-pill-btn" id="retryFailedBtn" style="display: none;">🔄 Retry Failed Stage</button>
+        </div>
+      </div>
+
+      <!-- Candidate Profile Context Card -->
+      <div class="card" id="profileContextCard">
+        <h2 class="card-title pixel-font" style="font-size: 1.6rem;">01 // Evaluation Context (Stage 1)</h2>
+        <div id="profileContextBody">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Independent Agent Opinions -->
+      <h2 class="section-label">02 // Four Isolated Opinions</h2>
+      <div class="opinion-row" id="opinionsContainer">
+        <!-- 4 Agent Cards populated here -->
+      </div>
+
+      <!-- The Debate -->
+      <h2 class="section-label">03 // The Debate</h2>
+      <div class="debate-transcript card" id="debateContainer">
+        <!-- Sequential debate turns populated here -->
+      </div>
+
+      <!-- Auditor Findings -->
+      <h2 class="section-label">04 // Reasoning Auditor</h2>
+      <div class="card" id="auditorContainer">
+        <!-- Auditor content populated here -->
+      </div>
+
+      <!-- Final Verdict & Decision Synthesis -->
+      <h2 class="section-label">05 // Decision Synthesis</h2>
+      <div class="card verdict-card" id="verdictContainer">
+        <!-- Verdict & comparative reasoning populated here -->
+      </div>
+
+      <!-- Personalized Follow-up Questions -->
+      <h2 class="section-label">06 // Targeted Follow-up Questions</h2>
+      <div class="card" id="questionsContainer">
+        <!-- 2-3 questions populated here -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Interactive Quote / Evidence Inspector Modal -->
+  <div id="quoteInspectorModal" class="inspector-modal" style="display: none;">
+    <div class="inspector-dialog">
+      <button type="button" class="modal-close-btn" id="modalCloseBtn">✕</button>
+      <h3 class="pixel-font" style="font-size: 1.5rem; margin-bottom: 12px; color: var(--tech-blue);">EVIDENCE INSPECTOR</h3>
+      <div id="inspectorContent">
+        <!-- Populated on click -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

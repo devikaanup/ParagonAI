@@ -54,11 +54,6 @@ Resume + Interview Transcript + Job Description
 
 ### Installation
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd promptwars/project
-
-# Install dependencies
 npm install
 ```
 
@@ -71,18 +66,15 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 ### Run Locally
 ```bash
-# Start local development server (Vite + embedded API middleware)
 npm run dev
-
-# Open in your browser:
-# http://localhost:5173
+# Open in your browser: http://localhost:5173
 ```
 
 ---
 
 ## 🧪 Testing & Verification
 
-Run the automated verification suite covering all 6 stages, quote verification, and API handlers:
+Run the automated verification suite:
 ```bash
 npm test
 ```
@@ -96,35 +88,10 @@ node test/test_full_pipeline.js
 
 ## 🌐 Netlify Deployment
 
-The project is structured with Netlify Serverless Functions in `project/netlify/functions/api.js`.
-
-### Netlify Configuration (`netlify.toml`):
-```toml
-[build]
-  base = "project"
-  publish = "dist"
-  command = "npm run build"
-  functions = "netlify/functions"
-
-[build.environment]
-  NODE_VERSION = "20"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-```
+The project is structured with Netlify Serverless Functions in `netlify/functions/api.js`.
 
 ### Deploying to Netlify:
 1. Link the repository to Netlify.
 2. Under **Site Configuration** → **Environment Variables**, add:
    - `GEMINI_API_KEY`: `your_gemini_api_key`
-3. Deploy! Netlify will automatically build the Vite multi-page application and deploy the serverless functions.
-
----
-
-## 🏆 Demo Mode & Golden Run Fallback
-
-- **Built-in Demo Candidate**: Preloaded profile for *Alex Rivera* (Staff Distributed Systems Engineer) featuring real technical depth, subtle discrepancies, and resolvable vs unresolvable tensions.
-- **One-Click Golden Demo**: Click **"🏆 Run Demo / Golden Mode"** on `/run.html` to instantly load verified benchmark evaluation outputs if live API quotas are constrained.
-- **Prompt Injection Defense Test**: Click **"🛡️ Test Prompt Injection Safety"** to verify that adversarial instructions inside transcripts cannot hijack agent personas.
+3. Deploy! Netlify builds the Vite multi-page application and deploys the serverless functions.

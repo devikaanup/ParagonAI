@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Agents — The Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="data-rain" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="nav-pill">
+      <div class="logo-mark" aria-hidden="true">P</div>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="agents.html" class="active">The Agents</a>
+      </nav>
+      <a href="run.html" class="cta-pill">Run The Panel</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-head">
+      <h1 class="pixel-headline reveal">Four Minds. Four Jobs.</h1>
+      <p class="subhead reveal">Each agent is built to look for something different — and none of them are told what the others think.</p>
+    </section>
+
+    <section class="agent-grid">
+      <div class="agent-card reveal" style="--accent: var(--tech-blue)">
+        <div class="agent-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 4 3 9 8 14"/><polyline points="16 10 21 15 16 20"/><line x1="14" y1="4" x2="10" y2="20"/></svg>
+        </div>
+        <h3>Technical Agent</h3>
+        <p class="agent-role">Checks technical skill and depth.</p>
+        <p class="agent-looks"><span class="looks-label">Looks for:</span> Does the depth of technical claims on paper match what came out in conversation?</p>
+      </div>
+
+      <div class="agent-card reveal" style="--accent: var(--hr-green)">
+        <div class="agent-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="16" cy="10" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M14 20c0-2.5 2-4.5 4.5-4.5S23 17.5 23 20"/></svg>
+        </div>
+        <h3>HR / Culture Agent</h3>
+        <p class="agent-role">Checks communication, teamwork, and honesty.</p>
+        <p class="agent-looks"><span class="looks-label">Looks for:</span> How this person talks about conflict, collaboration, and their own limitations.</p>
+      </div>
+
+      <div class="agent-card reveal" style="--accent: var(--manager-amber)">
+        <div class="agent-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><polyline points="9 13 11 15 15 11"/></svg>
+        </div>
+        <h3>Hiring Manager Agent</h3>
+        <p class="agent-role">Checks if this person is worth hiring for the role.</p>
+        <p class="agent-looks"><span class="looks-label">Looks for:</span> Whether the evidence — not the impression — supports bringing this person onto the team.</p>
+      </div>
+
+      <div class="agent-card reveal" style="--accent: var(--skeptic-red)">
+        <div class="agent-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16" y1="16" x2="21" y2="21"/><line x1="11" y1="8" x2="11" y2="11"/><line x1="8" y1="11" x2="11" y2="11"/></svg>
+        </div>
+        <h3>Skeptic Agent</h3>
+        <p class="agent-role">Looks for contradictions, exaggeration, and red flags.</p>
+        <p class="agent-looks"><span class="looks-label">Looks for:</span> Where the resume and the transcript quietly disagree with each other.</p>
+      </div>
+    </section>
+
+    <section class="audit-callout reveal">
+      <div class="callout-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z"/><polyline points="9 12 11 14 15 10"/></svg>
+      </div>
+      <p>A 5th agent audits the panel itself — checking whether any verdict leaned on something other than evidence.</p>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

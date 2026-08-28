@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Panel — AI Hiring Evaluation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=VT323&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <meta property="og:image" content="https://bolt.new/static/og_default.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://bolt.new/static/og_default.png">
+</head>
+<body>
+  <div class="data-rain" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="nav-pill">
+      <div class="logo-mark" aria-hidden="true">P</div>
+      <nav>
+        <a href="index.html" class="active">Home</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="agents.html">The Agents</a>
+      </nav>
+      <a href="run.html" class="cta-pill">Run The Panel</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="hero-content reveal">
+        <div class="badge-row">
+          <div class="badge-icons">
+            <span class="badge-dot" style="background: var(--tech-blue)"></span>
+            <span class="badge-dot" style="background: var(--hr-green)"></span>
+            <span class="badge-dot" style="background: var(--manager-amber)"></span>
+            <span class="badge-dot" style="background: var(--skeptic-red)"></span>
+          </div>
+          <span class="badge-pill">4 INDEPENDENT AGENTS, ONE VERDICT</span>
+        </div>
+        <h1 class="pixel-headline">
+          They Don't Agree<br />
+          Until The Evidence Does
+        </h1>
+        <p class="subhead">Four AI agents independently evaluate every candidate, debate their disagreements, and reach a decision no single model could fake.</p>
+        <a href="run.html" class="cta-pill cta-large">Run The Panel →</a>
+      </div>
+    </section>
+
+    <!-- STATS FOOTER -->
+    <section class="stats-footer">
+      <div class="stat reveal">
+        <div class="stat-num pixel-font" data-count="4" data-suffix="">0</div>
+        <div class="stat-label">Independent Agents</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-num pixel-font" data-count="100" data-suffix="%">0</div>
+        <div class="stat-label">Evidence-Backed Claims</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-num pixel-font" data-count="0" data-suffix="">0</div>
+        <div class="stat-label">Averaged Scores</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-num pixel-font" data-count="1" data-suffix="">0</div>
+        <div class="stat-label">Unresolved Disagreement Shown Honestly</div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
