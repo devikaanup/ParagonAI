@@ -1431,6 +1431,235 @@ body::after {
   line-height: 1.4;
 }
 
+/* ===== Live Committee Deliberation & Evidence Board ===== */
+.committee-deliberation-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.agent-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.agent-chip-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--chip-accent, var(--tech-blue));
+  color: var(--chip-accent, var(--tech-blue));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.agent-chip-info {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.agent-chip-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-chip-status {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.agent-chip-score {
+  font-family: "VT323", monospace;
+  font-size: 1.25rem;
+  color: var(--chip-accent, var(--tech-blue));
+}
+
+.agent-chip.is-speaking {
+  border-color: var(--chip-accent, var(--tech-blue));
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+  animation: speakerPulse 1.8s infinite ease-in-out;
+}
+
+.agent-chip.is-speaking .agent-chip-status {
+  color: var(--chip-accent, var(--tech-blue));
+  font-weight: 600;
+}
+
+.agent-chip.is-listening {
+  opacity: 0.8;
+}
+
+.agent-chip.is-done {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+@keyframes speakerPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.45);
+    transform: translateY(-2px);
+  }
+}
+
+.debate-layout-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.evidence-board-card {
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 20px 22px;
+}
+
+.evidence-board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.evidence-count-badge {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--tech-blue);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.evidence-board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.evidence-empty-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.evidence-board-item {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--item-accent, var(--tech-blue));
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  transition: background 0.2s ease;
+}
+
+.evidence-board-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.evidence-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+}
+
+.evidence-source-tag {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #cbd5e1;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.evidence-agent-tag {
+  color: var(--item-accent, var(--tech-blue));
+  font-weight: 600;
+}
+
+.evidence-quote-body {
+  color: #f1f5f9;
+  font-style: italic;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.evidence-issue-support {
+  color: var(--muted);
+  font-size: 0.74rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-top: 5px;
+}
+
+/* Position change badge */
+.pos-change-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-family: "IBM Plex Mono", monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.pos-change-badge.yes {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--manager-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.pos-change-badge.no {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--hr-green);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.score-revision-pill {
+  font-family: "VT323", monospace;
+  font-size: 1.15rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 900px) {
+  .committee-deliberation-bar { grid-template-columns: repeat(2, 1fr); }
+  .debate-layout-grid { grid-template-columns: 1fr; }
+  .evidence-board-card { position: static; max-height: none; }
+}
+
 @media (max-width: 768px) {
   .pipeline-tracker { grid-template-columns: repeat(3, 1fr); }
   .opinion-row { grid-template-columns: 1fr; }
@@ -1438,4 +1667,6 @@ body::after {
 
 @media (max-width: 480px) {
   .pipeline-tracker { grid-template-columns: repeat(2, 1fr); }
+  .committee-deliberation-bar { grid-template-columns: 1fr; }
 }
+

@@ -556,37 +556,52 @@ EXPERIENCE: 10 years distributed security systems.`;
         `;
       }
 
+      const quotes = op.evidence_quotes || [];
+      const score = typeof op.score === 'number' ? op.score : '--';
+      const verdict = op.verdict || 'Reviewed';
+
       return `
         <div class="opinion-card" style="--accent: ${accent};">
           <div class="opinion-name">${escapeHtml(op.agent)}</div>
           <div class="opinion-score">
-            <span class="score-num">${op.score}</span>
+            <span class="score-num">${score}</span>
             <span class="confidence-tag">${escapeHtml(op.confidence || 'MED')}</span>
           </div>
-          <p style="font-size: 0.84rem; color: #fff; font-weight: 500; margin-bottom: 8px;">${escapeHtml(op.verdict || '')}</p>
+          <p style="font-size: 0.84rem; color: #fff; font-weight: 500; margin-bottom: 8px;">${escapeHtml(verdict)}</p>
           <p style="font-size: 0.82rem; color: #d4d2e8; margin-bottom: 12px;">${escapeHtml(op.summary || '')}</p>
 
-          ${(op.evidence_quotes || []).map((eq) => {
-            const quoteText = typeof eq === 'string' ? eq : eq.quote;
-            const relevance = eq.relevance || '';
-            const isValid = eq.isValid !== false;
-            return `
-              <div class="evidence-quote" data-quote="${escapeHtml(quoteText)}" data-relevance="${escapeHtml(relevance)}" data-agent="${escapeHtml(op.agent)}">
-                "${escapeHtml(quoteText)}"
-                <span class="verified-tag">${isValid ? '✓ Verified' : '⚠️ Unverified'}</span>
-                <span class="quote-inspect-hint">Click to inspect source</span>
-              </div>
-            `;
-          }).join('')}
+          ${quotes.length > 0 ? `
+            <div class="evidence-box">
+              <span class="evidence-box-label">CITED EVIDENCE & QUOTES</span>
+              ${quotes.map((q) => {
+                const quoteText = typeof q === 'string' ? q : q.quote;
+                const relevance = q.relevance || '';
+                const isValid = q.isValid !== false;
+                const statusBadge = isValid
+                  ? `<span class="verified-tag">✓ Verified Source</span>`
+                  : `<span class="verified-tag" style="background: rgba(244,63,94,0.15); color: var(--skeptic-red);">⚠️ Unverified</span>`;
 
-          <div class="opinion-reasoning">
+                return `
+                  <div class="evidence-quote" data-quote="${escapeHtml(quoteText)}" data-relevance="${escapeHtml(relevance)}" data-agent="${escapeHtml(op.agent)}">
+                    "${escapeHtml(quoteText)}"
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                      <span style="font-size: 0.72rem; color: var(--muted); font-style: normal;">${escapeHtml(relevance)}</span>
+                      ${statusBadge}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : ''}
+
+          <div class="opinion-reasoning" style="margin-top: 10px; font-size: 0.8rem; color: #94a3b8;">
             ${escapeHtml(op.reasoning || '')}
           </div>
         </div>
       `;
     }).join('');
 
-    // Wire up quote click to open inspector modal
+    // Wire quote inspector modal
     container.querySelectorAll(".evidence-quote").forEach((el) => {
       el.addEventListener("click", () => {
         const quote = el.dataset.quote;
@@ -597,45 +612,205 @@ EXPERIENCE: 10 years distributed security systems.`;
     });
   }
 
-  /* 3. Debate */
-  function renderDebate(turns) {
+  /* ===== Committee Bar Helper ===== */
+  function updateCommitteeBar({ activeKey = null, opinions = [], turns = [] }) {
+    const AGENTS = [
+      { key: 'technical', chipId: 'chip-technical', statusId: 'status-technical', scoreId: 'score-technical', match: 'technical' },
+      { key: 'hr', chipId: 'chip-hr', statusId: 'status-hr', scoreId: 'score-hr', match: 'hr' },
+      { key: 'manager', chipId: 'chip-manager', statusId: 'status-manager', scoreId: 'score-manager', match: 'manager' },
+      { key: 'skeptic', chipId: 'chip-skeptic', statusId: 'status-skeptic', scoreId: 'score-skeptic', match: 'skeptic' }
+    ];
+
+    AGENTS.forEach((ag) => {
+      const chip = document.getElementById(ag.chipId);
+      const statusEl = document.getElementById(ag.statusId);
+      const scoreEl = document.getElementById(ag.scoreId);
+      if (!chip) return;
+
+      const op = (opinions || []).find((o) => o.agent.toLowerCase().includes(ag.match));
+      const latestTurn = (turns || []).slice().reverse().find((t) => t.agent.toLowerCase().includes(ag.match));
+
+      const currentScore = latestTurn && typeof latestTurn.score_after === 'number'
+        ? latestTurn.score_after
+        : (op && typeof op.score === 'number' ? op.score : '--');
+
+      if (scoreEl) scoreEl.textContent = currentScore;
+
+      chip.classList.remove('is-speaking', 'is-listening', 'is-done');
+
+      if (activeKey === ag.key) {
+        chip.classList.add('is-speaking');
+        if (statusEl) statusEl.textContent = 'Speaking…';
+      } else if (activeKey !== null) {
+        chip.classList.add('is-listening');
+        if (statusEl) statusEl.textContent = 'Listening';
+      } else if (latestTurn) {
+        chip.classList.add('is-done');
+        if (statusEl) {
+          statusEl.textContent = latestTurn.position_changed
+            ? `Revised (${latestTurn.score_before}→${latestTurn.score_after})`
+            : 'Position Kept';
+        }
+      } else {
+        if (statusEl) statusEl.textContent = 'Ready';
+      }
+    });
+  }
+
+  /* ===== Single Debate Turn Card Renderer ===== */
+  function renderSingleDebateTurnCard(turn, i, ctx) {
     const container = document.getElementById("debateContainer");
-    if (!container || !Array.isArray(turns)) return;
+    if (!container || !turn) return;
 
-    container.innerHTML = turns.map((turn, i) => {
+    let accent = 'var(--tech-blue)';
+    let initial = 'T';
+    if (turn.agent.toLowerCase().includes('hr')) { accent = 'var(--hr-green)'; initial = 'HR'; }
+    else if (turn.agent.toLowerCase().includes('manager')) { accent = 'var(--manager-amber)'; initial = 'HM'; }
+    else if (turn.agent.toLowerCase().includes('skeptic')) { accent = 'var(--skeptic-red)'; initial = 'SK'; }
+
+    const agreements = turn.agreements || [];
+    const disagreements = turn.disagreements || [];
+    const citedEvidence = turn.cited_evidence || [];
+
+    const hasScoreChange = typeof turn.score_before === 'number' && typeof turn.score_after === 'number' && turn.score_before !== turn.score_after;
+    const scoreDiff = hasScoreChange ? turn.score_after - turn.score_before : 0;
+    const diffSign = scoreDiff > 0 ? `+${scoreDiff}` : `${scoreDiff}`;
+
+    const posChangedBadge = turn.position_changed
+      ? `<span class="pos-change-badge yes">⚡ POSITION CHANGED</span>`
+      : `<span class="pos-change-badge no">✓ POSITION MAINTAINED</span>`;
+
+    const scoreRevisionPill = hasScoreChange
+      ? `<span class="score-revision-pill" style="color: var(--manager-amber);">${turn.score_before} → ${turn.score_after} (${diffSign})</span>`
+      : `<span class="score-revision-pill" style="color: var(--muted);">${turn.score_after || turn.score_before || 75}/100</span>`;
+
+    const cardHtml = `
+      <div class="debate-turn" style="--accent: ${accent}; animation: fadeIn 0.4s ease;">
+        <div class="debate-avatar">${initial}</div>
+        <div class="debate-bubble">
+          <div class="debate-meta" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span class="reply-tag">${escapeHtml(turn.agent)}</span>
+              <span style="font-size: 0.75rem; color: var(--muted);">Turn #${i + 1} (${escapeHtml(turn.turn_type || 'Deliberation')})</span>
+              ${turn.responding_to ? `<span style="font-size: 0.72rem; color: ${accent}; font-family: 'IBM Plex Mono', monospace;">↳ Responding to ${escapeHtml(turn.responding_to)}</span>` : ''}
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${posChangedBadge}
+              ${scoreRevisionPill}
+            </div>
+          </div>
+
+          <div class="debate-text">${escapeHtml(turn.response || '')}</div>
+
+          ${turn.reason_for_change ? `
+            <div style="margin-top: 8px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px; font-size: 0.78rem; color: #cbd5e1; border-left: 2px solid ${accent};">
+              <strong style="color: ${accent};">Deliberation Rationale:</strong> ${escapeHtml(turn.reason_for_change)}
+            </div>
+          ` : ''}
+
+          ${citedEvidence.length > 0 ? `
+            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 0.72rem; font-weight: 600; color: var(--tech-blue); font-family: 'IBM Plex Mono', monospace;">CITED EVIDENCE IN THIS TURN:</span>
+              ${citedEvidence.map((ev) => `
+                <div class="evidence-quote clickable-evidence-item" data-quote="${escapeHtml(ev.quote)}" data-source="${escapeHtml(ev.source || 'Context')}" data-agent="${escapeHtml(turn.agent)}">
+                  "${escapeHtml(ev.quote)}"
+                  <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.7rem; color: var(--muted);">
+                    <span>${escapeHtml(ev.supports_issue || 'Supports argument')}</span>
+                    <span class="evidence-source-tag">${escapeHtml(ev.source || 'Source')}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          ${(agreements.length > 0 || disagreements.length > 0) ? `
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 8px;">
+              ${agreements.map((a) => `<span style="color: var(--hr-green);">🤝 Agrees with ${escapeHtml(a.with_agent)}: ${escapeHtml(a.point)}</span>`).join('')}
+              ${disagreements.map((d) => `<span style="color: var(--skeptic-red);">⚔️ Disagrees with ${escapeHtml(d.with_agent)}: ${escapeHtml(d.point)}</span>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = cardHtml;
+    const turnElement = tempDiv.firstElementChild;
+    container.appendChild(turnElement);
+
+    // Wire quote inspector modal on new elements
+    turnElement.querySelectorAll(".clickable-evidence-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        openQuoteInspector(el.dataset.quote, `Cited by ${el.dataset.agent}`, el.dataset.source, ctx);
+      });
+    });
+
+    // Scroll turn into view smoothly
+    turnElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ===== Evidence Board Renderer ===== */
+  function updateEvidenceBoard(allCitedEvidence, ctx) {
+    const list = document.getElementById("evidenceBoardList");
+    const countBadge = document.getElementById("evidenceCountBadge");
+    if (!list) return;
+
+    if (!Array.isArray(allCitedEvidence) || allCitedEvidence.length === 0) {
+      list.innerHTML = '<div class="evidence-empty-hint">Awaiting deliberation citations…</div>';
+      if (countBadge) countBadge.textContent = '0 Cited';
+      return;
+    }
+
+    if (countBadge) countBadge.textContent = `${allCitedEvidence.length} Cited`;
+
+    list.innerHTML = allCitedEvidence.map((ev) => {
       let accent = 'var(--tech-blue)';
-      let initial = 'T';
-      if (turn.agent.toLowerCase().includes('hr')) { accent = 'var(--hr-green)'; initial = 'HR'; }
-      else if (turn.agent.toLowerCase().includes('manager')) { accent = 'var(--manager-amber)'; initial = 'HM'; }
-      else if (turn.agent.toLowerCase().includes('skeptic')) { accent = 'var(--skeptic-red)'; initial = 'SK'; }
-
-      const agreements = turn.agreements || [];
-      const disagreements = turn.disagreements || [];
-      const scoreDiff = typeof turn.score_after === 'number' && typeof turn.score_before === 'number'
-        ? `Score: ${turn.score_before} → ${turn.score_after}`
-        : '';
+      if (ev.agent && ev.agent.toLowerCase().includes('hr')) accent = 'var(--hr-green)';
+      else if (ev.agent && ev.agent.toLowerCase().includes('manager')) accent = 'var(--manager-amber)';
+      else if (ev.agent && ev.agent.toLowerCase().includes('skeptic')) accent = 'var(--skeptic-red)';
 
       return `
-        <div class="debate-turn" style="--accent: ${accent};">
-          <div class="debate-avatar">${initial}</div>
-          <div class="debate-bubble">
-            <div class="debate-meta">
-              <span class="reply-tag">${escapeHtml(turn.agent)}</span>
-              ${scoreDiff ? `<span style="margin-left: 10px; font-family: 'VT323', monospace; font-size: 1.1rem; color: ${accent};">${scoreDiff}</span>` : ''}
-              <span style="margin-left: 8px; color: var(--muted);">Turn #${i + 1}</span>
-            </div>
-            <div class="debate-text">${escapeHtml(turn.response || '')}</div>
-
-            ${(agreements.length > 0 || disagreements.length > 0) ? `
-              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 0.78rem;">
-                ${agreements.map((a) => `<span style="color: var(--hr-green); margin-right: 12px;">🤝 Agrees with ${escapeHtml(a.with_agent)}: ${escapeHtml(a.point)}</span>`).join('')}
-                ${disagreements.map((d) => `<span style="color: var(--skeptic-red); margin-right: 12px;">⚔️ Disagrees with ${escapeHtml(d.with_agent)}: ${escapeHtml(d.point)}</span>`).join('')}
-              </div>
-            ` : ''}
+        <div class="evidence-board-item clickable-board-item" style="--item-accent: ${accent};" data-quote="${escapeHtml(ev.quote)}" data-agent="${escapeHtml(ev.agent || 'Agent')}" data-source="${escapeHtml(ev.source || 'Context')}">
+          <div class="evidence-item-header">
+            <span class="evidence-agent-tag">${escapeHtml(ev.agent || 'Agent')}</span>
+            <span class="evidence-source-tag">${escapeHtml(ev.source || 'Source')}</span>
           </div>
+          <div class="evidence-quote-body">"${escapeHtml(ev.quote)}"</div>
+          ${ev.supports_issue ? `<div class="evidence-issue-support">${escapeHtml(ev.supports_issue)}</div>` : ''}
         </div>
       `;
     }).join('');
+
+    // Wire clicks to inspector modal
+    list.querySelectorAll(".clickable-board-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        openQuoteInspector(el.dataset.quote, `Cited by ${el.dataset.agent}`, el.dataset.source, ctx);
+      });
+    });
+  }
+
+  /* 3. Debate Full Renderer (Fallback / Golden Run) */
+  function renderDebate(turns, ctx, opinions) {
+    const container = document.getElementById("debateContainer");
+    if (!container || !Array.isArray(turns)) return;
+
+    container.innerHTML = '';
+    updateCommitteeBar({ activeKey: null, opinions, turns });
+
+    const allCitedEvidence = [];
+    turns.forEach((turn, i) => {
+      renderSingleDebateTurnCard(turn, i, ctx);
+      if (Array.isArray(turn.cited_evidence)) {
+        turn.cited_evidence.forEach((ev) => {
+          allCitedEvidence.push({
+            ...ev,
+            agent: turn.agent
+          });
+        });
+      }
+    });
+
+    updateEvidenceBoard(allCitedEvidence, ctx);
   }
 
   /* 4. Auditor */

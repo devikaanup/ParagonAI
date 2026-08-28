@@ -189,10 +189,68 @@
         <!-- 4 Agent Cards populated here -->
       </div>
 
-      <!-- The Debate -->
-      <h2 class="section-label">03 // The Debate</h2>
-      <div class="debate-transcript card" id="debateContainer">
-        <!-- Sequential debate turns populated here -->
+      <!-- The Live Committee Deliberation -->
+      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
+        <h2 class="section-label" style="margin-bottom: 0;">03 // Live Committee Deliberation</h2>
+        <div id="debateStatusIndicator" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: var(--muted);">Sequential Turn 0 of 4</div>
+      </div>
+
+      <!-- Live Deliberation Committee Bar -->
+      <div class="committee-deliberation-bar" id="committeeBar">
+        <div class="agent-chip" id="chip-technical" style="--chip-accent: var(--tech-blue);">
+          <div class="agent-chip-avatar">T</div>
+          <div class="agent-chip-info">
+            <span class="agent-chip-name">Technical Agent</span>
+            <span class="agent-chip-status" id="status-technical">Ready</span>
+          </div>
+          <div class="agent-chip-score" id="score-technical">--</div>
+        </div>
+
+        <div class="agent-chip" id="chip-hr" style="--chip-accent: var(--hr-green);">
+          <div class="agent-chip-avatar">HR</div>
+          <div class="agent-chip-info">
+            <span class="agent-chip-name">HR / Culture</span>
+            <span class="agent-chip-status" id="status-hr">Ready</span>
+          </div>
+          <div class="agent-chip-score" id="score-hr">--</div>
+        </div>
+
+        <div class="agent-chip" id="chip-manager" style="--chip-accent: var(--manager-amber);">
+          <div class="agent-chip-avatar">HM</div>
+          <div class="agent-chip-info">
+            <span class="agent-chip-name">Hiring Manager</span>
+            <span class="agent-chip-status" id="status-manager">Ready</span>
+          </div>
+          <div class="agent-chip-score" id="score-manager">--</div>
+        </div>
+
+        <div class="agent-chip" id="chip-skeptic" style="--chip-accent: var(--skeptic-red);">
+          <div class="agent-chip-avatar">SK</div>
+          <div class="agent-chip-info">
+            <span class="agent-chip-name">Skeptic Agent</span>
+            <span class="agent-chip-status" id="status-skeptic">Ready</span>
+          </div>
+          <div class="agent-chip-score" id="score-skeptic">--</div>
+        </div>
+      </div>
+
+      <!-- Debate Grid: Live Transcript + Live Evidence Board -->
+      <div class="debate-layout-grid">
+        <div class="debate-transcript card" id="debateContainer">
+          <!-- Sequential debate turns populated here -->
+        </div>
+
+        <!-- Live Evidence Board -->
+        <div class="card evidence-board-card" id="evidenceBoardCard">
+          <div class="evidence-board-header">
+            <h3 class="pixel-font" style="font-size: 1.4rem; color: var(--tech-blue); margin: 0;">EVIDENCE BOARD</h3>
+            <span class="evidence-count-badge" id="evidenceCountBadge">0 Cited</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 14px;">Live quotes cited by agents during committee deliberation.</p>
+          <div class="evidence-board-list" id="evidenceBoardList">
+            <div class="evidence-empty-hint">Awaiting deliberation citations…</div>
+          </div>
+        </div>
       </div>
 
       <!-- Auditor Findings -->

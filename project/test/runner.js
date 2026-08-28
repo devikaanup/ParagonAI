@@ -83,6 +83,9 @@ async function runTests() {
   assert(GOLDEN_RUN_OUTPUT.evaluation_context.claims.length >= 5, "Golden run contains at least 5 verified claims");
   assert(GOLDEN_RUN_OUTPUT.opinions.length === 4, "Golden run contains exactly 4 independent agent opinions");
   assert(GOLDEN_RUN_OUTPUT.debate.length === 4, "Golden run contains 4 sequential debate turns");
+  assert(GOLDEN_RUN_OUTPUT.debate.every(t => t.turn_number && t.turn_type && t.responding_to && typeof t.score_before === 'number' && typeof t.score_after === 'number' && t.reason_for_change), "All 4 debate turns conform to 4-turn protocol with reason_for_change and before/after scores");
+  assert(GOLDEN_RUN_OUTPUT.debate.some(t => t.position_changed === true), "At least one agent in the debate revised its position/score based on evidence");
+  assert(GOLDEN_RUN_OUTPUT.debate.some(t => Array.isArray(t.cited_evidence) && t.cited_evidence.length > 0), "Debate turns contain cited evidence quotes");
   assert(GOLDEN_RUN_OUTPUT.auditor.overall_reliability === 'High', "Auditor report present in golden run");
   assert(GOLDEN_RUN_OUTPUT.decision.unresolved_disagreements.length > 0, "Golden run has at least 1 unresolved disagreement");
   assert(GOLDEN_RUN_OUTPUT.questions.questions.length >= 2 && GOLDEN_RUN_OUTPUT.questions.questions.length <= 3, "Golden run has 2-3 interview questions");

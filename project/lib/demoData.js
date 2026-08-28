@@ -322,22 +322,52 @@ export const GOLDEN_RUN_OUTPUT = {
   debate: [
     {
       agent: "Technical Agent",
-      response: "I understand the Skeptic's concern regarding the five-nines calculation. However, in distributed systems architecture, distinguishing between write-path degradation and complete cluster blackout is standard engineering practice. What impressed me was that Alex proactively volunteered the 3-hour outage and explained the exact lock contention in the leaseholder handoff. That depth of post-mortem remediation proves genuine technical competence.",
+      turn_number: 1,
+      turn_type: "Challenge",
+      responding_to: "Skeptic Agent",
+      position_changed: false,
+      score_before: 94,
+      score_after: 94,
+      reason_for_change: "Maintained score. Read vs write SLA distinction is standard distributed systems practice; candidate showed deep post-mortem mastery.",
+      response: "I challenge the Skeptic Agent's characterization of the five-nines calculation. In distributed systems architecture, distinguishing between write-path degradation and complete cluster blackout is standard engineering practice. What impressed me was that Alex proactively volunteered the 3-hour outage and explained the exact lock contention in the leaseholder handoff. That depth of post-mortem remediation proves genuine technical competence.",
+      cited_evidence: [
+        {
+          quote: "I implemented adaptive leader lease extensions with preemptive quorum checks before stepping down.",
+          source: "Transcript",
+          supports_issue: "Technical depth in consensus failover"
+        },
+        {
+          quote: "To be completely candid, we had one 3-hour cascading failure in Q3 during a cluster schema migration that required an emergency rollback.",
+          source: "Transcript",
+          supports_issue: "Proactive accountability in architectural post-mortems"
+        }
+      ],
       agreements: [
         { with_agent: "HR / Culture Agent", point: "Candor about the Q3 failure", reason: "Proves blameless engineering mindset" }
       ],
       disagreements: [
         { with_agent: "Skeptic Agent", point: "Severity of resume exaggeration", reason: "Read vs write SLA distinction is technically standard, and post-mortem was thorough" }
       ],
-      revisions: [],
       remaining_uncertainties: ["Exact customer blast radius during the 3-hour Q3 write stall"],
-      score_before: 94,
-      score_after: 94,
       confidence: "High"
     },
     {
       agent: "HR / Culture Agent",
-      response: "I agree with the Technical Agent. The Skeptic rightly caught the gap between the resume bullet and the interview statement, but the key behavioral signal is how Alex responded: they didn't deflect or blame teammates; they immediately said 'To be completely candid' and detailed the root cause. Furthermore, regarding the DataGrid migration, Alex explicitly corrected the interviewer to highlight their 3 teammates. That is the opposite of a credit-hog.",
+      turn_number: 2,
+      turn_type: "Response",
+      responding_to: "Skeptic Agent",
+      position_changed: true,
+      score_before: 88,
+      score_after: 90,
+      reason_for_change: "Increased score from 88 to 90. Candidate explicitly corrected interviewer to credit teammates and showed humility during failure review.",
+      response: "Responding directly to the Skeptic: while there is a gap between the resume bullet and the interview statement, the key behavioral signal is how Alex handled it. They didn't deflect or blame teammates; they immediately said 'To be completely candid' and detailed the root cause. Furthermore, regarding the DataGrid migration, Alex explicitly corrected the interviewer to highlight their 3 teammates. That is the hallmark of collaborative leadership.",
+      cited_evidence: [
+        {
+          quote: "the operational execution was a tight 4-person strike team. Two senior engineers handled the query rewrite layer while I focused on the consensus commit path",
+          source: "Transcript",
+          supports_issue: "Shared credit and team collaboration"
+        }
+      ],
       agreements: [
         { with_agent: "Technical Agent", point: "Intellectual honesty in incident review", reason: "Candidate showed immediate accountability" },
         { with_agent: "Skeptic Agent", point: "Identification of the resume phrasing gap", reason: "Valuable to verify, though candidate handled it well" }
@@ -345,15 +375,26 @@ export const GOLDEN_RUN_OUTPUT = {
       disagreements: [
         { with_agent: "Skeptic Agent", point: "Penalizing candidate for team collaboration", reason: "Crediting teammates in interview indicates humility, not exaggeration" }
       ],
-      revisions: [],
       remaining_uncertainties: [],
-      score_before: 88,
-      score_after: 90,
       confidence: "High"
     },
     {
       agent: "Hiring Manager Agent",
-      response: "The debate clarifies the exact risk profile. The Skeptic is right that we need to understand how Alex reports SLAs to non-technical stakeholders, but the Technical Agent's point on their Jepsen testing and Raft lease controllers convinces me they can run our 2.5M QPS tier. I revise my confidence to High because their candidate transparency shows they will be trustworthy in production war rooms.",
+      turn_number: 3,
+      turn_type: "Reassessment",
+      responding_to: "Technical Agent",
+      position_changed: true,
+      score_before: 91,
+      score_after: 93,
+      reason_for_change: "Raised score from 91 to 93. Technical Agent's analysis of Raft lease fencing and Jepsen verification satisfies my operational reliability threshold.",
+      response: "Reassessing based on Technical and HR's analysis: the Skeptic is right that we need to clarify SLA communication, but the Technical Agent's point on Jepsen testing and Raft lease controllers convinces me they can run our 2.5M QPS tier on Day 1. Their candidate transparency shows they will be trustworthy during production war rooms.",
+      cited_evidence: [
+        {
+          quote: "Principal architect for global Raft-based metadata storage cluster processing 3.1M operations/sec at sub-5ms p99 latency.",
+          source: "Resume",
+          supports_issue: "Direct scale match for 2.5M QPS target"
+        }
+      ],
       agreements: [
         { with_agent: "Technical Agent", point: "Technical fit for metadata cluster scale", reason: "Candidate has already solved our immediate engineering bottlenecks" },
         { with_agent: "HR / Culture Agent", point: "Staff-level mentorship approach", reason: "Data-driven chaos testing will elevate our junior engineers" }
@@ -361,17 +402,31 @@ export const GOLDEN_RUN_OUTPUT = {
       disagreements: [
         { with_agent: "Skeptic Agent", point: "Treating the Q3 outage as a blocker", reason: "A blamelessly resolved outage with automated guardrails is a sign of experience" }
       ],
-      revisions: [
-        { aspect: "Operational Risk", old_position: "Minor concern over uptime reporting", new_position: "Satisfied that incident response protocols are sound", reason: "Clear explanation of lease transfer fencing guardrails" }
-      ],
       remaining_uncertainties: ["Whether Alex has managed cross-functional product roadmaps in addition to pure infrastructure"],
-      score_before: 91,
-      score_after: 93,
       confidence: "High"
     },
     {
       agent: "Skeptic Agent",
-      response: "I acknowledge the HR Agent's point that Alex readily credited their 4-person team during the interview, and I concede that their technical post-mortem on the leaseholder lock contention was solid. However, I maintain my core skepticism regarding SLA transparency: claiming 99.999% uptime on a resume while knowing there was a 3-hour write outage is misleading to non-technical recruiters. I will raise my score from 68 to 74 to reflect their genuine post-mortem rigor, but we must leave this as an open inquiry for the human interviewer.",
+      turn_number: 4,
+      turn_type: "Final Position",
+      responding_to: "Technical Agent",
+      position_changed: true,
+      score_before: 68,
+      score_after: 74,
+      reason_for_change: "Raised score from 68 to 74 (+6) due to verified post-mortem rigor, while maintaining concern over resume five-nines marketing.",
+      response: "In my final position: I acknowledge the HR Agent's point that Alex readily credited their 4-person team, and I concede that their technical post-mortem on leaseholder lock contention was solid. However, I maintain my core skepticism regarding SLA transparency: claiming 99.999% uptime on a resume while knowing there was a 3-hour write outage is misleading. I raise my score from 68 to 74 to reflect their genuine post-mortem rigor, but we must leave this as an open inquiry for the human interviewer.",
+      cited_evidence: [
+        {
+          quote: "Achieved 99.999% uptime across 18 months by engineering automated heartbeat partition recovery and leaseholder rebalancing.",
+          source: "Resume",
+          supports_issue: "Resume marketing vs operational reality"
+        },
+        {
+          quote: "To be completely candid, we had one 3-hour cascading failure in Q3 during a cluster schema migration that required an emergency rollback.",
+          source: "Transcript",
+          supports_issue: "Write outage contradictory with 99.999% annual budget"
+        }
+      ],
       agreements: [
         { with_agent: "HR / Culture Agent", point: "Teammate credit attribution", reason: "Candidate did share credit appropriately when asked" },
         { with_agent: "Technical Agent", point: "Deep knowledge of Raft failure modes", reason: "Post-mortem analysis was undeniably technically competent" }
@@ -379,15 +434,8 @@ export const GOLDEN_RUN_OUTPUT = {
       disagreements: [
         { with_agent: "Hiring Manager Agent", point: "Completely dismissing the resume SLA inflation", reason: "Resume wording remains factually misleading without context" }
       ],
-      revisions: [
-        { aspect: "Candidate Integrity Score", old_position: "Score 68 (Suspected willful exaggeration)", new_position: "Score 74 (Acknowledged technical nuance and candor)", reason: "Candidate demonstrated authentic accountability and post-mortem depth" }
-      ],
-      remaining_uncertainties: [
-        "Did Alex clearly document the read-vs-write SLA distinction to their executive leadership at Apex, or only after the incident occurred?"
-      ],
-      score_before: 68,
-      score_after: 74,
-      confidence: "Medium"
+      remaining_uncertainties: ["Candidate's distinction between true write availability and read-only degraded states"],
+      confidence: "High"
     }
   ],
 

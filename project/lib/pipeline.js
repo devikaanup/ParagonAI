@@ -160,62 +160,117 @@ export async function runAllIndependentAgents({ evaluationContext, rawSourceText
   return opinions;
 }
 
+export const DEBATE_TURNS_CONFIG = [
+  { turnNumber: 1, turnType: 'Challenge', personaKey: 'technical' },
+  { turnNumber: 2, turnType: 'Response', personaKey: 'hr' },
+  { turnNumber: 3, turnType: 'Reassessment', personaKey: 'manager' },
+  { turnNumber: 4, turnType: 'Final Position', personaKey: 'skeptic' }
+];
+
 /**
- * Stage [3] Sequential Debate (4 Gemini calls)
- * Each agent receives: evaluation_context, all 4 independent opinions, and the debate transcript so far.
+ * Executes a single sequential debate turn for a specific persona.
  */
-export async function runDebateRound({ evaluationContext, opinions, onTurnComplete = null }) {
-  const debateTranscript = [];
-  const validOpinions = opinions.filter((op) => !op.error && op.score !== null);
+export async function runSingleDebateTurn({
+  evaluationContext,
+  opinions,
+  debateTranscript = [],
+  persona,
+  turnNumber = 1,
+  turnType = 'Challenge'
+}) {
+  const validOpinions = (opinions || []).filter((op) => !op.error && op.score !== null);
+  const priorOpinion = (opinions || []).find((op) => op.agent === persona.name);
+  const initialScore = priorOpinion && typeof priorOpinion.score === 'number' ? priorOpinion.score : 75;
 
-  for (const persona of AGENT_PERSONAS) {
-    const priorOpinion = opinions.find((op) => op.agent === persona.name);
-    const initialScore = priorOpinion && typeof priorOpinion.score === 'number' ? priorOpinion.score : 75;
+  const debatePrompt = SYSTEM_INSTRUCTIONS.DEBATE_TURN({
+    agentName: persona.name,
+    personaPrompt: persona.systemPrompt,
+    turnNumber,
+    turnType
+  });
 
-    const debatePrompt = SYSTEM_INSTRUCTIONS.DEBATE_TURN(persona.name, persona.systemPrompt);
-    const contextPayload = `### EVALUATION CONTEXT:
+  const contextPayload = `### EVALUATION CONTEXT (Candidate Profile & Claims):
 ${JSON.stringify(evaluationContext, null, 2)}
 
 ### INITIAL INDEPENDENT OPINIONS FROM ALL 4 AGENTS:
 ${JSON.stringify(validOpinions, null, 2)}
 
-### DEBATE TRANSCRIPT SO FAR:
-${debateTranscript.length > 0 ? JSON.stringify(debateTranscript, null, 2) : 'No prior debate statements yet. You are speaking first.'}
+### ACCUMULATED DEBATE TRANSCRIPT SO FAR:
+${debateTranscript.length > 0 ? JSON.stringify(debateTranscript, null, 2) : 'No prior debate statements yet. You are speaking in Turn 1.'}
 
 ### YOUR PREVIOUS SCORE:
 ${initialScore}
 
-Engage directly with the other agents' specific arguments, address agreements/disagreements by name, and justify any score revision or defense. Output strictly valid JSON.`;
+Engage directly with the other agents' specific arguments, address agreements/disagreements by name, cite specific claims/quotes, and state whether your position has changed. Output strictly valid JSON.`;
 
-    console.log(`[Pipeline Stage 3] Running debate turn for ${persona.name}...`);
+  console.log(`[Pipeline Stage 3] Running Debate Turn ${turnNumber} (${turnType}) for ${persona.name}...`);
+  const result = await generateGeminiContent({
+    systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${debatePrompt}`,
+    contents: contextPayload,
+    preferredModel: 'gemini-3.6-flash',
+    temperature: 0.25,
+    jsonMode: true
+  });
+
+  const turn = result.data || {};
+  turn.agent = persona.name;
+  turn.turn_number = turnNumber;
+  turn.turn_type = turnType;
+  turn.score_before = initialScore;
+  turn.score_after = typeof turn.score_after === 'number'
+    ? Math.min(100, Math.max(0, Math.round(turn.score_after)))
+    : initialScore;
+  turn.position_changed = turn.position_changed === true || (turn.score_after !== turn.score_before);
+  turn.confidence = turn.confidence || priorOpinion?.confidence || 'Medium';
+  turn.cited_evidence = Array.isArray(turn.cited_evidence) ? turn.cited_evidence : [];
+  turn.agreements = Array.isArray(turn.agreements) ? turn.agreements : [];
+  turn.disagreements = Array.isArray(turn.disagreements) ? turn.disagreements : [];
+
+  return turn;
+}
+
+/**
+ * Stage [3] Sequential Live Committee Debate (4 separate Gemini calls)
+ * Each agent receives: evaluation_context, all 4 independent opinions, and accumulated transcript.
+ */
+export async function runDebateRound({ evaluationContext, opinions, onTurnComplete = null }) {
+  const debateTranscript = [];
+
+  for (let i = 0; i < DEBATE_TURNS_CONFIG.length; i++) {
+    const config = DEBATE_TURNS_CONFIG[i];
+    const persona = AGENT_PERSONAS.find((p) => p.key === config.personaKey) || AGENT_PERSONAS[i];
+    const priorOpinion = opinions.find((op) => op.agent === persona.name);
+    const initialScore = priorOpinion && typeof priorOpinion.score === 'number' ? priorOpinion.score : 75;
+
     try {
-      const result = await generateGeminiContent({
-        systemInstruction: `${SYSTEM_INSTRUCTIONS.SAFETY_PREAMBLE}\n\n${debatePrompt}`,
-        contents: contextPayload,
-        preferredModel: 'gemini-3.6-flash',
-        temperature: 0.3,
-        jsonMode: true
+      const turn = await runSingleDebateTurn({
+        evaluationContext,
+        opinions,
+        debateTranscript,
+        persona,
+        turnNumber: config.turnNumber,
+        turnType: config.turnType
       });
-
-      const turn = result.data;
-      turn.agent = persona.name;
-      turn.score_before = initialScore;
-      turn.score_after = typeof turn.score_after === 'number' ? Math.min(100, Math.max(0, Math.round(turn.score_after))) : initialScore;
-      turn.confidence = turn.confidence || 'Medium';
 
       debateTranscript.push(turn);
       if (onTurnComplete) onTurnComplete(turn);
+      await new Promise((res) => setTimeout(res, 800));
     } catch (err) {
-      console.error(`[Pipeline Stage 3] Error during debate turn for ${persona.name}:`, err.message);
+      console.error(`[Pipeline Stage 3] Error during debate turn ${config.turnNumber} for ${persona.name}:`, err.message);
       const fallbackTurn = {
         agent: persona.name,
-        response: `Maintained position. (Debate call encountered transient notice: ${err.message})`,
-        agreements: [],
-        disagreements: [],
-        revisions: [],
-        remaining_uncertainties: [],
+        turn_number: config.turnNumber,
+        turn_type: config.turnType,
+        responding_to: 'Panel Committee',
+        position_changed: false,
         score_before: initialScore,
         score_after: initialScore,
+        reason_for_change: `Maintained position. (Encountered transient notice: ${err.message})`,
+        response: `Maintained position. (Debate call encountered transient notice: ${err.message})`,
+        cited_evidence: [],
+        agreements: [],
+        disagreements: [],
+        remaining_uncertainties: [],
         confidence: priorOpinion?.confidence || 'Medium'
       };
       debateTranscript.push(fallbackTurn);

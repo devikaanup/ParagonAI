@@ -9,7 +9,12 @@ dotenv.config();
 
 const DEFAULT_MODELS = [
   'gemini-3.6-flash',
-  'gemini-3.7-flash'
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.7-flash',
+  'gemini-flash-latest',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash'
 ];
 
 export function getApiKey() {
@@ -100,16 +105,16 @@ export function safeJsonParse(text, fallback = null) {
  * @param {number} [options.temperature] - Generation temperature (default 0.2)
  * @param {number} [options.maxTokens] - Max output tokens (default 4096)
  * @param {boolean} [options.jsonMode] - Request JSON output (default true)
- * @param {number} [options.maxRetries] - Retries on 429/5xx (default 2)
+ * @param {number} [options.maxRetries] - Retries on 429/5xx (default 1)
  */
 export async function generateGeminiContent({
-  systemInstruction,
-  contents,
-  preferredModel = 'gemini-2.5-flash',
+  systemInstruction = '',
+  contents = '',
+  preferredModel = 'gemini-3.6-flash',
   temperature = 0.2,
   maxTokens = 4096,
   jsonMode = true,
-  maxRetries = 2
+  maxRetries = 1
 }) {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -129,10 +134,7 @@ export async function generateGeminiContent({
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 0) {
-          let delayMs = Math.pow(2, attempt) * 1200 + Math.random() * 500;
-          if (lastError && lastError.retryDelaySec) {
-            delayMs = Math.min(30000, lastError.retryDelaySec * 1000);
-          }
+          let delayMs = Math.pow(2, attempt) * 1000 + Math.random() * 400;
           console.log(`[Gemini Client] Retrying ${modelName} after backoff ${Math.round(delayMs)}ms (attempt ${attempt + 1}/${maxRetries + 1})...`);
           await new Promise((res) => setTimeout(res, delayMs));
         }

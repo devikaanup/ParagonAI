@@ -8,6 +8,7 @@ import {
   runIndependentAgent,
   runAllIndependentAgents,
   runDebateRound,
+  runSingleDebateTurn,
   runAuditor,
   runDecisionSynthesizer,
   runQuestionGenerator,
@@ -123,7 +124,22 @@ export async function handler(event, context) {
       }
     }
 
-    // Pipeline Stage 3: Debate Round
+    // Pipeline Stage 3: Live Sequential Debate Turn
+    if (method === 'POST' && path === '/evaluate/debate/turn') {
+      const { evaluationContext, opinions, debateTranscript, personaKey, turnNumber, turnType } = requestBody;
+      const persona = AGENT_PERSONAS.find((p) => p.key === personaKey || p.name.toLowerCase().includes((personaKey || '').toLowerCase())) || AGENT_PERSONAS[0];
+      const turn = await runSingleDebateTurn({
+        evaluationContext,
+        opinions,
+        debateTranscript: debateTranscript || [],
+        persona,
+        turnNumber: turnNumber || 1,
+        turnType: turnType || 'Challenge'
+      });
+      return jsonResponse(200, { turn });
+    }
+
+    // Pipeline Stage 3: Full Debate Round
     if (method === 'POST' && path === '/evaluate/debate') {
       const { evaluationContext, opinions } = requestBody;
       const debateTranscript = await runDebateRound({
