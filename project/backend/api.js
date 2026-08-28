@@ -13,7 +13,8 @@ import {
   runDecisionSynthesizer,
   runQuestionGenerator,
   runFullPipeline,
-  AGENT_PERSONAS
+  AGENT_PERSONAS,
+  findPersonaByKey
 } from './pipeline/index.js';
 import { getApiKey } from './services/llm.js';
 import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from './data/demoData.js';
@@ -112,7 +113,7 @@ export async function handler(event, context) {
       const { agentKey, evaluationContext, rawSourceText } = requestBody;
 
       if (agentKey) {
-        const persona = AGENT_PERSONAS.find((p) => p.key === agentKey || p.name.toLowerCase().includes(agentKey.toLowerCase()));
+        const persona = findPersonaByKey(agentKey);
         if (!persona) {
           return jsonResponse(400, { error: `Unknown agent key: ${agentKey}` });
         }
@@ -134,7 +135,7 @@ export async function handler(event, context) {
     // Pipeline Stage 3: Live Sequential Debate Turn
     if (method === 'POST' && path === '/evaluate/debate/turn') {
       const { evaluationContext, opinions, debateTranscript, personaKey, turnNumber, turnType } = requestBody;
-      const persona = AGENT_PERSONAS.find((p) => p.key === personaKey || p.name.toLowerCase().includes((personaKey || '').toLowerCase())) || AGENT_PERSONAS[0];
+      const persona = findPersonaByKey(personaKey) || AGENT_PERSONAS[0];
       const turn = await runSingleDebateTurn({
         evaluationContext,
         opinions,

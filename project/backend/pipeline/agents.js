@@ -9,29 +9,51 @@ import { validateAgentEvidence } from '../services/validator.js';
 export const AGENT_PERSONAS = [
   {
     key: 'technical',
+    aliases: ['tech', 'technical_agent'],
     name: 'Technical Agent',
     systemPrompt: TECHNICAL_AGENT,
     accent: 'var(--tech-blue)'
   },
   {
     key: 'hr',
+    aliases: ['hr_culture', 'culture', 'hr_agent'],
     name: 'HR / Culture Agent',
     systemPrompt: HR_CULTURE_AGENT,
     accent: 'var(--hr-green)'
   },
   {
-    key: 'manager',
+    key: 'hiringManager',
+    aliases: ['manager', 'hiring_manager', 'hiring-manager', 'hiringmanager', 'manager_agent'],
     name: 'Hiring Manager Agent',
     systemPrompt: HIRING_MANAGER_AGENT,
     accent: 'var(--manager-amber)'
   },
   {
     key: 'skeptic',
+    aliases: ['skeptic_agent'],
     name: 'Skeptic Agent',
     systemPrompt: SKEPTIC_AGENT,
     accent: 'var(--skeptic-red)'
   }
 ];
+
+export function findPersonaByKey(rawKey) {
+  if (!rawKey || typeof rawKey !== 'string') return null;
+  const normalized = rawKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return (
+    AGENT_PERSONAS.find((p) => {
+      const pKeyNorm = p.key.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const pNameNorm = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (pKeyNorm === normalized || pNameNorm.includes(normalized) || normalized.includes(pKeyNorm)) {
+        return true;
+      }
+      if (Array.isArray(p.aliases)) {
+        return p.aliases.some((alias) => alias.toLowerCase().replace(/[^a-z0-9]/g, '') === normalized);
+      }
+      return false;
+    }) || null
+  );
+}
 
 /**
  * Stage [2] Single Independent Agent (Isolated call)

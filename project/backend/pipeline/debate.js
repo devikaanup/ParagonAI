@@ -1,13 +1,13 @@
 import { SAFETY_PREAMBLE } from '../prompts/safety.js';
 import { DEBATE_TURN } from '../prompts/debate.js';
 import { generateGeminiContent } from '../services/llm.js';
-import { AGENT_PERSONAS } from './agents.js';
+import { AGENT_PERSONAS, findPersonaByKey } from './agents.js';
 
 export const DEBATE_TURNS_CONFIG = [
   { turnNumber: 1, turnType: 'Challenge', personaKey: 'technical' },
-  { turnNumber: 2, turnType: 'Response', personaKey: 'hr' },
-  { turnNumber: 3, turnType: 'Reassessment', personaKey: 'manager' },
-  { turnNumber: 4, turnType: 'Final Position', personaKey: 'skeptic' }
+  { turnNumber: 2, turnType: 'Defense / Cross-examination', personaKey: 'hr' },
+  { turnNumber: 3, turnType: 'Reassessment', personaKey: 'hiringManager' },
+  { turnNumber: 4, turnType: 'Closing Challenge', personaKey: 'skeptic' }
 ];
 
 /**
@@ -88,7 +88,7 @@ export async function runDebateRound({ evaluationContext, opinions, onTurnComple
 
   for (let i = 0; i < DEBATE_TURNS_CONFIG.length; i++) {
     const config = DEBATE_TURNS_CONFIG[i];
-    const persona = AGENT_PERSONAS.find((p) => p.key === config.personaKey) || AGENT_PERSONAS[i];
+    const persona = findPersonaByKey(config.personaKey) || AGENT_PERSONAS[i];
     const priorOpinion = opinions.find((op) => op.agent === persona.name);
     const initialScore = priorOpinion && typeof priorOpinion.score === 'number' ? priorOpinion.score : 75;
 

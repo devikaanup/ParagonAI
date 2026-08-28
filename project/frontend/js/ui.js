@@ -170,7 +170,7 @@ export function updateCommitteeBar({ activeKey = null, opinions = [], turns = []
   const PERSONAS = [
     { key: 'technical', name: 'Technical Agent', avatar: 'T', accent: 'var(--tech-blue)' },
     { key: 'hr', name: 'HR / Culture Agent', avatar: 'H', accent: 'var(--hr-green)' },
-    { key: 'manager', name: 'Hiring Manager Agent', avatar: 'M', accent: 'var(--manager-amber)' },
+    { key: 'hiringManager', aliases: ['manager'], name: 'Hiring Manager Agent', avatar: 'M', accent: 'var(--manager-amber)' },
     { key: 'skeptic', name: 'Skeptic Agent', avatar: 'S', accent: 'var(--skeptic-red)' }
   ];
 
@@ -187,7 +187,9 @@ export function updateCommitteeBar({ activeKey = null, opinions = [], turns = []
     let statusText = 'Listening';
     let chipClass = 'agent-chip';
 
-    if (activeKey === p.key) {
+    const isSpeaking = activeKey === p.key || (p.aliases && p.aliases.includes(activeKey));
+
+    if (isSpeaking) {
       statusText = 'Speaking…';
       chipClass += ' is-speaking';
     } else if (lastTurn) {

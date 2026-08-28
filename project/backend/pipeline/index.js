@@ -1,5 +1,5 @@
 import { runProfileBuilder } from './profileBuilder.js';
-import { runIndependentAgent, runAllIndependentAgents, AGENT_PERSONAS } from './agents.js';
+import { runIndependentAgent, runAllIndependentAgents, AGENT_PERSONAS, findPersonaByKey } from './agents.js';
 import { runSingleDebateTurn, runDebateRound, DEBATE_TURNS_CONFIG } from './debate.js';
 import { runAuditor } from './auditor.js';
 import { runDecisionSynthesizer } from './decision.js';
@@ -10,6 +10,7 @@ export {
   runIndependentAgent,
   runAllIndependentAgents,
   AGENT_PERSONAS,
+  findPersonaByKey,
   runSingleDebateTurn,
   runDebateRound,
   DEBATE_TURNS_CONFIG,
