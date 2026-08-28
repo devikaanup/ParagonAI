@@ -3,6 +3,11 @@ import { resolve } from 'path';
 import { handler } from './netlify/functions/api.js';
 
 export default defineConfig({
+  root: __dirname,
+  server: {
+    host: '0.0.0.0',
+    port: 5173
+  },
   plugins: [
     {
       name: 'api-server-middleware',

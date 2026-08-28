@@ -153,6 +153,20 @@ import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from './lib/demoData.js';
 
   /* Server-Side File Extraction (§13) */
   const ACCEPTED = [".pdf", ".docx", ".txt"];
+  const selectedFiles = {
+    resume: null,
+    transcript: null,
+    role: null
+  };
+
+  function formatBytes(bytes, decimals = 1) {
+    if (!bytes || bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
 
   function arrayBufferToBase64(buffer) {
     let binary = '';
@@ -167,8 +181,8 @@ import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from './lib/demoData.js';
   async function extractFileServerSide(file) {
     const name = file.name.toLowerCase();
     const ext = "." + name.split(".").pop();
-    if (!ACCEPTED.includes(ext)) {
-      throw new Error(`Unsupported format '${ext}'. Please upload a PDF, DOCX, or TXT file.`);
+    if (!ACCEPTED.includes(ext) && !file.type.includes('pdf') && !file.type.includes('text') && !file.type.includes('word')) {
+      throw new Error(`Unsupported format '${ext || file.type}'. Please upload a PDF, DOCX, or TXT file.`);
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -199,39 +213,101 @@ import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from './lib/demoData.js';
     const input = document.getElementById(id + "File");
     const target = document.getElementById(id);
 
-    const handleFile = async (file) => {
+    const handleFile = async (file, eventSource = 'input') => {
       if (!file) return;
+
+      // Diagnostic Logging per requirement 3
+      if (eventSource === 'drop') {
+        console.log(`FILE DROP\nfilename: ${file.name}\ntype: ${file.type || 'unknown'}\nsize: ${file.size} bytes`);
+      } else {
+        console.log(`FILE INPUT CHANGE\nfilename: ${file.name}\ntype: ${file.type || 'unknown'}\nsize: ${file.size} bytes\nfile object received: true`);
+      }
+
       const ext = "." + file.name.split(".").pop().toLowerCase();
-      if (!ACCEPTED.includes(ext)) {
-        setStatus(dz, "Unsupported format. Use PDF, DOCX, or TXT.", true);
+      const isPdf = ext === '.pdf' || (file.type && file.type.includes('pdf'));
+      const isDocx = ext === '.docx' || (file.type && file.type.includes('wordprocessingml'));
+      const isTxt = ext === '.txt' || (file.type && file.type.includes('text/plain'));
+
+      if (!isPdf && !isDocx && !isTxt) {
+        setStatus(dz, `Unsupported file format '${ext}'. Please upload a PDF, DOCX, or TXT file.`, true);
         return;
       }
-      console.log(`[Client Upload] Successfully extracted '${file.name}' on server (Total: ${result.charCount} chars, ${result.pageCount || 1} page(s))`);
-      console.log(`[Client Upload] First 300 chars of '${file.name}':\n${result.text.substring(0, 300)}\n---`);
+
+      // Update UI immediately with selected file info
+      setStatus(dz, `Uploading & extracting ${file.name} (${formatBytes(file.size)})…`, false);
 
       try {
         const result = await extractFileServerSide(file);
-        target.value = result.text;
+        selectedFiles[id] = {
+          file,
+          filename: file.name,
+          size: file.size,
+          text: result.text,
+          pageCount: result.pageCount
+        };
+
+        if (target) {
+          target.value = result.text;
+        }
+
         const pageInfo = result.pageCount ? ` (${result.pageCount} pages)` : '';
         setStatus(dz, `✓ Loaded ${file.name}${pageInfo} — ${result.charCount.toLocaleString()} chars`, false);
+
+        // Update main run button state
         updateBtn();
       } catch (err) {
-        setStatus(dz, "Could not read file: " + err.message, true);
+        console.error(`[Upload Error] ${file.name}:`, err);
+        setStatus(dz, `Could not process ${file.name}: ${err.message}`, true);
       }
     };
 
-    dz.addEventListener("click", () => input.click());
-    input.addEventListener("change", (e) => handleFile(e.target.files[0]));
+    // Trigger file picker on click
+    dz.addEventListener("click", () => {
+      if (input) input.click();
+    });
+
+    if (input) {
+      input.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+
+      input.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          handleFile(file, 'input');
+          // Reset input value so selecting the same file again triggers change event
+          input.value = '';
+        }
+      });
+    }
+
+    // Drag & Drop handlers
+    dz.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dz.classList.add("drag-over");
+    });
 
     dz.addEventListener("dragover", (e) => {
       e.preventDefault();
+      e.stopPropagation();
       dz.classList.add("drag-over");
     });
-    dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+
+    dz.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dz.classList.remove("drag-over");
+    });
+
     dz.addEventListener("drop", (e) => {
       e.preventDefault();
+      e.stopPropagation();
       dz.classList.remove("drag-over");
-      handleFile(e.dataTransfer.files[0]);
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) {
+        handleFile(file, 'drop');
+      }
     });
   }
 
@@ -287,11 +363,20 @@ EXPERIENCE: 10 years distributed security systems.`;
     });
   }
 
+  function resetDropzoneStatuses() {
+    selectedFiles.resume = null;
+    selectedFiles.transcript = null;
+    selectedFiles.role = null;
+    document.querySelectorAll(".dropzone-status").forEach((el) => el.remove());
+    document.querySelectorAll(".dropzone input[type='file']").forEach((inp) => inp.value = "");
+  }
+
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
       resumeEl.value = "";
       transcriptEl.value = "";
       roleEl.value = "";
+      resetDropzoneStatuses();
       updateBtn();
       if (resultsSection) resultsSection.style.display = "none";
       if (pipelineTracker) pipelineTracker.style.display = "none";
