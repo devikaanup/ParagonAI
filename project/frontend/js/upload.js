@@ -17,11 +17,16 @@ export function formatBytes(bytes, decimals = 1) {
 }
 
 export function setDropzoneStatus(dropzoneEl, msg, isError = false) {
-  const statusEl = dropzoneEl?.querySelector('.dropzone-status');
-  if (statusEl) {
-    statusEl.textContent = msg;
-    statusEl.className = 'dropzone-status' + (isError ? ' error' : '');
+  if (!dropzoneEl) return;
+  let statusEl = dropzoneEl.querySelector('.dropzone-status');
+  if (!statusEl) {
+    statusEl = document.createElement('p');
+    statusEl.className = 'dropzone-status';
+    const inner = dropzoneEl.querySelector('.dropzone-inner') || dropzoneEl;
+    inner.appendChild(statusEl);
   }
+  statusEl.textContent = msg;
+  statusEl.className = 'dropzone-status' + (isError ? ' error' : '');
 }
 
 export function setupDropzone(id, onFileProcessed) {
@@ -81,12 +86,14 @@ export function setupDropzone(id, onFileProcessed) {
     });
   }
 
+  // Click on dropzone opens Finder / file picker
   dz.addEventListener('click', (e) => {
-    if (e.target.tagName !== 'INPUT' && input) {
+    if (e.target !== input && input) {
       input.click();
     }
   });
 
+  // Drag & drop lifecycle on the dropzone
   dz.addEventListener('dragenter', (e) => {
     e.preventDefault();
     e.stopPropagation();
