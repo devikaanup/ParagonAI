@@ -12,6 +12,18 @@ dotenv.config();
 const PORT = process.env.PORT || 3001;
 
 const server = http.createServer(async (req, res) => {
+  // Fast-path for OPTIONS preflight requests
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, HEAD',
+      'Access-Control-Max-Age': '86400'
+    });
+    res.end();
+    return;
+  }
+
   const buffers = [];
   for await (const chunk of req) {
     buffers.push(chunk);
@@ -36,8 +48,8 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(500, {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, HEAD'
     });
     res.end(JSON.stringify({ error: err.message }));
   }

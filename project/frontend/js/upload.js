@@ -56,8 +56,15 @@ export function setupDropzone(id, onFileProcessed) {
 
     setDropzoneStatus(dz, `Uploading & extracting ${file.name} (${formatBytes(file.size)})…`, false);
 
+    // If server cold start takes more than 3.5s, inform the user
+    const coldStartTimer = setTimeout(() => {
+      setDropzoneStatus(dz, `Extracting ${file.name} (waking up backend instance, please wait)…`, false);
+    }, 3500);
+
     try {
       const result = await extractFileServerSide(file);
+      clearTimeout(coldStartTimer);
+
       if (targetTextarea) {
         targetTextarea.value = result.text;
         targetTextarea.dispatchEvent(new Event('input', { bubbles: true }));
@@ -70,6 +77,7 @@ export function setupDropzone(id, onFileProcessed) {
         onFileProcessed({ file, result, id });
       }
     } catch (err) {
+      clearTimeout(coldStartTimer);
       console.error(`[Extraction Error for ${file.name}]:`, err);
       setDropzoneStatus(dz, `Extraction failed: ${err.message}`, true);
     }

@@ -47,7 +47,7 @@ export async function handler(event, context) {
     return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   }
 
-  const path = event.path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/api/, '');
+  const path = event.path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^(\/api)+/, '') || '/';
   const method = event.httpMethod;
 
   let requestBody = {};

@@ -1,0 +1,24 @@
+{
+  "name": "the-panel-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm --prefix project run dev",
+    "build": "npm --prefix project run build",
+    "preview": "npm --prefix project run preview",
+    "start": "npm --prefix project start",
+    "server": "npm --prefix project run server",
+    "test": "npm --prefix project test"
+  },
+  "dependencies": {
+    "@google/genai": "^2.19.0",
+    "dotenv": "^16.4.7",
+    "mammoth": "^1.12.1",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^6.2.108"
+  },
+  "devDependencies": {
+    "vite": "^5.4.2"
+  }
+}
