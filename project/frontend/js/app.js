@@ -226,29 +226,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
       resetTracker();
       const tClientStart = performance.now();
+      let currentStage = 'profile';
 
       try {
         // Stage 1: Profile Builder
+        currentStage = 'profile';
         setStageStatus('profile', 'running', 'Extracting');
-        const { evaluationContext } = await fetchProfile({
+        const profileData = await fetchProfile({
           resumeText,
           transcriptText,
           jobDescriptionText
         });
+        const evaluationContext = profileData.evaluationContext || profileData;
         setStageStatus('profile', 'completed', 'Ready');
         renderProfileContext(evaluationContext);
 
         // Stage 2: 4 Independent Agents in Parallel
+        currentStage = 'agents';
         setStageStatus('agents', 'running', 'Evaluating (0/4)');
         const agentKeys = ['technical', 'hr', 'hiringManager', 'skeptic'];
         let finishedAgentCount = 0;
 
         const opinionPromises = agentKeys.map(async (key) => {
-          const opinion = await fetchOpinion({
+          const opRes = await fetchOpinion({
             evaluationContext,
             agentKey: key,
             rawSourceText: `${resumeText}\n\n${transcriptText}`
           });
+          const opinion = opRes?.opinion || opRes;
           finishedAgentCount++;
           setStageStatus('agents', 'running', `Evaluating (${finishedAgentCount}/4)`);
           return opinion;
@@ -260,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCommitteeBar({ activeKey: null, opinions, turns: [] });
 
         // Stage 3: 4-Turn Sequential Committee Debate
+        currentStage = 'debate';
         setStageStatus('debate', 'running', 'Deliberating');
         const debateTurns = [];
         const debateTurnsContainer = document.getElementById('debateTurns');
@@ -281,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           updateCommitteeBar({ activeKey: config.personaKey, opinions, turns: debateTurns });
 
-          const turn = await fetchDebateTurn({
+          const turnRes = await fetchDebateTurn({
             evaluationContext,
             opinions,
             debateTranscript: debateTurns,
@@ -289,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
             turnNumber: config.turnNumber,
             turnType: config.turnType
           });
+          const turn = turnRes?.turn || turnRes;
 
           debateTurns.push(turn);
           renderSingleDebateTurnCard(turn, config.turnNumber, evaluationContext);
@@ -307,37 +314,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusIndicator) statusIndicator.textContent = 'Deliberation Complete (4/4 Turns)';
 
         // Stage 4: Reasoning Auditor
+        currentStage = 'auditor';
         setStageStatus('auditor', 'running', 'Auditing');
-        const { auditor } = await fetchAudit({ evaluationContext, opinions, debateTranscript: debateTurns });
+        const auditorRes = await fetchAudit({ evaluationContext, opinions, debateTranscript: debateTurns });
+        const auditor = auditorRes?.auditor || auditorRes;
         setStageStatus('auditor', 'completed', 'Audited');
         renderAuditor(auditor);
 
         // Stage 5: Decision Synthesizer
+        currentStage = 'decision';
         setStageStatus('decision', 'running', 'Synthesizing');
-        const { decision } = await fetchSynthesize({
+        const decisionRes = await fetchSynthesize({
           evaluationContext,
           opinions,
           debateTranscript: debateTurns,
           auditorReport: auditor
         });
+        const decision = decisionRes?.decision || decisionRes;
         setStageStatus('decision', 'completed', 'Synthesized');
         renderVerdict(decision);
 
         // Stage 6: Targeted Questions
+        currentStage = 'questions';
         setStageStatus('questions', 'running', 'Generating');
-        const { questions } = await fetchQuestions({
+        const questionsRes = await fetchQuestions({
           evaluationContext,
           unresolvedDisagreements: decision.unresolved_disagreements
         });
+        const questions = questionsRes?.questions || questionsRes;
         setStageStatus('questions', 'completed', 'Generated');
         renderQuestions(questions);
 
         const totalElapsed = ((performance.now() - tClientStart) / 1000).toFixed(1);
         if (runHint) runHint.textContent = `✓ Evaluation Complete for ${evaluationContext.candidate?.name || 'candidate'} in ${totalElapsed}s.`;
       } catch (err) {
-        console.error('Pipeline error:', err);
+        console.error(`Pipeline error in stage '${currentStage}':`, err);
         if (runHint) runHint.textContent = `Pipeline error: ${err.message}.`;
-        setStageStatus('profile', 'failed', 'Error');
+        setStageStatus(currentStage, 'failed', 'Error');
       } finally {
         runBtn.classList.remove('is-processing');
         runBtn.textContent = 'Run The Panel';

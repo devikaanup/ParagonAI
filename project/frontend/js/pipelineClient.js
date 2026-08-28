@@ -102,7 +102,11 @@ export async function fetchProfile({ resumeText, transcriptText, jobDescriptionT
     const errJson = await res.json().catch(() => ({}));
     throw new Error(errJson.error || `Profile extraction failed (${res.status})`);
   }
-  return res.json();
+  const data = await res.json();
+  return {
+    evaluationContext: data.evaluationContext || data,
+    modelUsed: data.modelUsed
+  };
 }
 
 export async function fetchOpinion({ evaluationContext, agentKey, rawSourceText = '' }) {
@@ -115,7 +119,8 @@ export async function fetchOpinion({ evaluationContext, agentKey, rawSourceText 
     const errJson = await res.json().catch(() => ({}));
     throw new Error(errJson.error || `Opinion for ${agentKey} failed (${res.status})`);
   }
-  return res.json();
+  const data = await res.json();
+  return data.opinion || data;
 }
 
 export async function fetchDebateTurn({
@@ -142,7 +147,8 @@ export async function fetchDebateTurn({
     const errJson = await res.json().catch(() => ({}));
     throw new Error(errJson.error || `Debate turn ${turnNumber} failed (${res.status})`);
   }
-  return res.json();
+  const data = await res.json();
+  return data.turn || data;
 }
 
 export async function fetchAudit({ evaluationContext, opinions, debateTranscript }) {
@@ -155,7 +161,8 @@ export async function fetchAudit({ evaluationContext, opinions, debateTranscript
     const errJson = await res.json().catch(() => ({}));
     throw new Error(errJson.error || `Auditor failed (${res.status})`);
   }
-  return res.json();
+  const data = await res.json();
+  return data.auditor || data;
 }
 
 export async function fetchSynthesize({ evaluationContext, opinions, debateTranscript, auditorReport }) {
@@ -173,7 +180,8 @@ export async function fetchSynthesize({ evaluationContext, opinions, debateTrans
     const errJson = await res.json().catch(() => ({}));
     throw new Error(errJson.error || `Decision synthesizer failed (${res.status})`);
   }
-  return res.json();
+  const data = await res.json();
+  return data.decision || data;
 }
 
 export async function fetchQuestions({ evaluationContext, unresolvedDisagreements }) {
@@ -189,7 +197,8 @@ export async function fetchQuestions({ evaluationContext, unresolvedDisagreement
     const errJson = await res.json().catch(() => ({}));
     throw new Error(errJson.error || `Question generator failed (${res.status})`);
   }
-  return res.json();
+  const data = await res.json();
+  return data.questions || data;
 }
 
 export async function fetchFullPipeline({ resumeText, transcriptText, jobDescriptionText, forceDemo = false }) {

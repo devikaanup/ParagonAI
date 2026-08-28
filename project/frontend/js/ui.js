@@ -107,9 +107,13 @@ export function renderProfileContext(ctx) {
   profileContainer.innerHTML = html;
 }
 
-export function renderOpinions(opinions, ctx) {
+export function renderOpinions(opinionsInput, ctx) {
   const container = document.getElementById('opinionsContainer');
-  if (!container || !Array.isArray(opinions)) return;
+  if (!container) return;
+
+  const opinions = Array.isArray(opinionsInput)
+    ? opinionsInput.map((item) => item?.opinion || item)
+    : [];
 
   const ACCENTS = {
     'Technical Agent': 'var(--tech-blue)',
@@ -120,14 +124,15 @@ export function renderOpinions(opinions, ctx) {
 
   container.innerHTML = opinions
     .map((op) => {
-      const accent = ACCENTS[op.agent] || 'var(--lavender)';
+      const agentName = op.agent || 'Panel Agent';
+      const accent = ACCENTS[agentName] || 'var(--lavender)';
       const quotes = Array.isArray(op.evidence_quotes) ? op.evidence_quotes : [];
       const scoreDisplay = op.score !== null && op.score !== undefined ? op.score : '—';
 
       return `
       <div class="opinion-card" style="--accent: ${accent};">
         <div>
-          <div class="opinion-name">${escapeHtml(op.agent)}</div>
+          <div class="opinion-name">${escapeHtml(agentName)}</div>
           <div class="opinion-score">
             <span class="score-num">${escapeHtml(scoreDisplay)}</span>
             <span class="confidence-tag">${escapeHtml(op.confidence || 'Medium')} Confidence</span>
@@ -146,8 +151,8 @@ export function renderOpinions(opinions, ctx) {
                 .slice(0, 2)
                 .map(
                   (q) => `
-                <div class="evidence-quote" onclick="window.thePanelOpenQuote('${escapeHtml(q.quote).replace(/'/g, "\\'")}', '${escapeHtml(op.agent)}', '${escapeHtml(q.relevance || '').replace(/'/g, "\\'")}')">
-                  "${escapeHtml(q.quote)}"
+                <div class="evidence-quote" onclick="window.thePanelOpenQuote('${escapeHtml(q.quote || '').replace(/'/g, "\\'")}', '${escapeHtml(agentName)}', '${escapeHtml(q.relevance || '').replace(/'/g, "\\'")}')">
+                  "${escapeHtml(q.quote || '')}"
                 </div>
               `
                 )
@@ -174,9 +179,12 @@ export function updateCommitteeBar({ activeKey = null, opinions = [], turns = []
     { key: 'skeptic', name: 'Skeptic Agent', avatar: 'S', accent: 'var(--skeptic-red)' }
   ];
 
+  const cleanOpinions = (opinions || []).map((o) => o?.opinion || o);
+  const cleanTurns = (turns || []).map((t) => t?.turn || t);
+
   bar.innerHTML = PERSONAS.map((p) => {
-    const priorOpinion = (opinions || []).find((op) => op.agent === p.name);
-    const agentTurns = (turns || []).filter((t) => t.agent === p.name);
+    const priorOpinion = cleanOpinions.find((op) => op.agent === p.name);
+    const agentTurns = cleanTurns.filter((t) => t.agent === p.name);
     const lastTurn = agentTurns[agentTurns.length - 1];
 
     let currentScore = priorOpinion && typeof priorOpinion.score === 'number' ? priorOpinion.score : '—';
@@ -212,9 +220,13 @@ export function updateCommitteeBar({ activeKey = null, opinions = [], turns = []
   }).join('');
 }
 
-export function renderSingleDebateTurnCard(turn, index, ctx) {
+export function renderSingleDebateTurnCard(turnInput, index, ctx) {
   const container = document.getElementById('debateContainer');
   if (!container) return;
+
+  const turn = turnInput?.turn || turnInput || {};
+  const agentName = turn.agent || 'Panel Agent';
+  const initial = agentName && typeof agentName === 'string' && agentName.length > 0 ? agentName.charAt(0) : 'A';
 
   const ACCENTS = {
     'Technical Agent': 'var(--tech-blue)',
@@ -222,29 +234,32 @@ export function renderSingleDebateTurnCard(turn, index, ctx) {
     'Hiring Manager Agent': 'var(--manager-amber)',
     'Skeptic Agent': 'var(--skeptic-red)'
   };
-  const accent = ACCENTS[turn.agent] || 'var(--lavender)';
+  const accent = ACCENTS[agentName] || 'var(--lavender)';
 
   const div = document.createElement('div');
   div.className = 'debate-turn';
   div.style.borderLeftColor = accent;
 
+  const scoreBefore = turn.score_before !== undefined && turn.score_before !== null ? turn.score_before : '—';
+  const scoreAfter = turn.score_after !== undefined && turn.score_after !== null ? turn.score_after : '—';
+
   const posBadge = turn.position_changed
-    ? `<span class="pos-change-badge yes">POSITION CHANGED: YES (${turn.score_before} ➔ ${turn.score_after})</span>`
-    : `<span class="pos-change-badge no">POSITION CHANGED: NO (${turn.score_after}/100)</span>`;
+    ? `<span class="pos-change-badge yes">POSITION CHANGED: YES (${scoreBefore} ➔ ${scoreAfter})</span>`
+    : `<span class="pos-change-badge no">POSITION CHANGED: NO (${scoreAfter}/100)</span>`;
 
   div.innerHTML = `
     <div class="debate-avatar" style="border-color: ${accent}; color: ${accent};">
-      ${turn.agent.charAt(0)}
+      ${escapeHtml(initial)}
     </div>
     <div class="debate-bubble">
       <div class="debate-meta" style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
-        <span class="reply-tag" style="color: ${accent};">Turn ${turn.turn_number} (${escapeHtml(turn.turn_type)}): ${escapeHtml(turn.agent)}</span>
+        <span class="reply-tag" style="color: ${accent};">Turn ${turn.turn_number || index || 1} (${escapeHtml(turn.turn_type || 'Deliberation')}): ${escapeHtml(agentName)}</span>
         <div style="display: flex; gap: 6px; align-items: center;">
           <span style="font-size: 0.72rem; color: #cbd5e1;">Addressing: <strong>${escapeHtml(turn.responding_to || 'Committee')}</strong></span>
           ${posBadge}
         </div>
       </div>
-      <p class="debate-text">${escapeHtml(turn.response)}</p>
+      <p class="debate-text">${escapeHtml(turn.response || '')}</p>
       ${
         turn.reason_for_change
           ? `<div style="font-size: 0.76rem; color: #fce7f3; margin-top: 6px; font-style: italic;">Rationale: ${escapeHtml(turn.reason_for_change)}</div>`
