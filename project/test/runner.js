@@ -4,12 +4,12 @@
  * and API endpoints.
  */
 
-import { validateQuote, validateAgentEvidence, sanitizeString } from '../lib/evidenceValidator.js';
-import { SYSTEM_INSTRUCTIONS } from '../lib/prompts.js';
-import { AGENT_PERSONAS } from '../lib/pipeline.js';
-import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from '../lib/demoData.js';
-import { handler } from '../netlify/functions/api.js';
-import { extractDocumentText } from '../lib/documentExtractor.js';
+import { validateQuote, validateAgentEvidence, sanitizeString } from '../backend/services/validator.js';
+import { SYSTEM_INSTRUCTIONS } from '../backend/prompts/index.js';
+import { AGENT_PERSONAS } from '../backend/pipeline/agents.js';
+import { DEMO_CANDIDATE, GOLDEN_RUN_OUTPUT } from '../backend/data/demoData.js';
+import { handler } from '../backend/api.js';
+import { extractDocumentText } from '../backend/services/pdfParser.js';
 
 let passed = 0;
 let failed = 0;

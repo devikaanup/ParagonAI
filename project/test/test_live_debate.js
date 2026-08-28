@@ -10,8 +10,8 @@ import {
   runQuestionGenerator,
   AGENT_PERSONAS,
   DEBATE_TURNS_CONFIG
-} from '../lib/pipeline.js';
-import { DEMO_CANDIDATE } from '../lib/demoData.js';
+} from '../backend/pipeline/index.js';
+import { DEMO_CANDIDATE } from '../backend/data/demoData.js';
 
 async function testLiveSequentialDebate() {
   console.log('\n===============================================================');

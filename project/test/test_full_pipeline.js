@@ -1,8 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { runFullPipeline } from '../lib/pipeline.js';
-import { DEMO_CANDIDATE } from '../lib/demoData.js';
+import { runFullPipeline } from '../backend/pipeline/index.js';
+import { DEMO_CANDIDATE } from '../backend/data/demoData.js';
 
 async function testFullPipelineLive() {
   console.log('\n======================================================');

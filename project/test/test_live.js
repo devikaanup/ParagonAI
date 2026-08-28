@@ -1,8 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { runProfileBuilder, runIndependentAgent, AGENT_PERSONAS } from '../lib/pipeline.js';
-import { DEMO_CANDIDATE } from '../lib/demoData.js';
+import { runProfileBuilder } from '../backend/pipeline/profileBuilder.js';
+import { runIndependentAgent, AGENT_PERSONAS } from '../backend/pipeline/agents.js';
+import { DEMO_CANDIDATE } from '../backend/data/demoData.js';
 
 async function testLiveGemini() {
   console.log('Testing live Gemini call for Stage 1: Profile Builder...');

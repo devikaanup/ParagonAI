@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { handler } from './netlify/functions/api.js';
+import { handler } from './backend/api.js';
 
 export default defineConfig({
-  root: __dirname,
+  root: resolve(__dirname, 'frontend'),
   server: {
     host: '0.0.0.0',
     port: 5173
@@ -48,12 +48,14 @@ export default defineConfig({
     }
   ],
   build: {
+    outDir: resolve(__dirname, 'dist'),
+    emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        run: resolve(__dirname, 'run.html'),
-        agents: resolve(__dirname, 'agents.html'),
-        howItWorks: resolve(__dirname, 'how-it-works.html')
+        main: resolve(__dirname, 'frontend/index.html'),
+        run: resolve(__dirname, 'frontend/run.html'),
+        agents: resolve(__dirname, 'frontend/agents.html'),
+        howItWorks: resolve(__dirname, 'frontend/how-it-works.html')
       }
     }
   }

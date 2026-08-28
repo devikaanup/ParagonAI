@@ -1,97 +1,111 @@
-# The Panel — AI Hiring Evaluation
+# The Panel — Gemini-Powered Multi-Agent Hiring Evaluation Platform
 
-> **Four Independent AI Agents, One Evidence-Backed Verdict.**
-> AI assists the human hiring decision-maker. It does not replace them.
-
-The Panel simulates a disciplined hiring committee. Four independent AI agents evaluate a candidate separately, debate their disagreements, get audited for reasoning quality, and only then produce a single non-averaged recommendation.
+A production-grade, multi-agent AI candidate evaluation system powered by Google Gemini. The Panel features genuinely isolated independent assessments across four specialist personas, a live sequential committee deliberation with position revisions, a non-voting reasoning auditor, comparative decision synthesis without score averaging, and evidence-grounded follow-up question generation.
 
 ---
 
-## 🏛️ Pipeline Architecture
+## 🏛️ Project Architecture & Folder Structure
 
 ```
-Resume + Interview Transcript + Job Description
-                      ↓
-           [1] Profile Builder (1x Gemini Call)
-                      ↓ (Immutable evaluation_context)
-           [2] Independent Opinions (4x Isolated Gemini Calls)
-                 ├── Technical Agent
-                 ├── HR / Culture Agent
-                 ├── Hiring Manager Agent
-                 └── Skeptic Agent
-                      ↓
-           [3] Structured Debate (4x Sequential Gemini Calls)
-                 ├── Technical Turn
-                 ├── HR / Culture Turn
-                 ├── Hiring Manager Turn
-                 └── Skeptic Turn
-                      ↓
-           [4] Reasoning Auditor (1x Gemini Call)
-                      ↓
-           [5] Decision Synthesizer (1x Gemini Call)
-                      ↓
-           [6] Interview Question Generator (1x Gemini Call)
-                      ↓
-                  Final Report
+the-panel/
+│
+├── frontend/                     # Frontend client layer
+│   ├── index.html                # Landing page
+│   ├── run.html                  # Main Deliberation & Evaluation Dashboard
+│   ├── how-it-works.html         # Pipeline architecture explanation
+│   ├── agents.html               # Persona breakdowns and criteria
+│   ├── css/
+│   │   └── styles.css            # Atmospheric lavender-pink gradient & glassmorphism theme
+│   ├── js/
+│   │   ├── app.js                # Main application bootstrap & event listeners
+│   │   ├── pipelineClient.js     # Progressive API client for /api/* stages
+│   │   ├── upload.js             # Drag-and-drop & server-side extraction triggers
+│   │   └── ui.js                 # DOM rendering for cards, debate turns, and modals
+│   └── assets/                   # Static assets & icons
+│
+├── backend/                      # Backend services and multi-agent pipeline
+│   ├── server.js                 # Local Node HTTP server (port 3001)
+│   ├── api.js                    # Central API router & Netlify handler
+│   ├── pipeline/                 # 6-Stage Multi-Agent Pipeline
+│   │   ├── index.js              # Pipeline orchestrator (runFullPipeline)
+│   │   ├── profileBuilder.js     # Stage 1: Structured evidence extraction
+│   │   ├── agents.js             # Stage 2: 4 isolated parallel agent evaluations
+│   │   ├── debate.js             # Stage 3: 4-turn sequential committee deliberation
+│   │   ├── auditor.js            # Stage 4: Non-voting reasoning auditor
+│   │   ├── decision.js           # Stage 5: Comparative decision synthesizer
+│   │   └── followups.js          # Stage 6: Targeted follow-up question generator
+│   ├── services/                 # Reusable backend services
+│   │   ├── llm.js                # Gemini API client with timeouts & fast retries
+│   │   ├── pdfParser.js          # Server-side document text extractor (PDF, DOCX, TXT)
+│   │   └── validator.js          # Substring evidence quote validation engine
+│   ├── prompts/                  # Immutable system instructions & personas
+│   │   ├── index.js              # Prompts barrel exporter
+│   │   ├── safety.js             # Prompt injection defense preamble
+│   │   ├── profile.js            # Stage 1 Profile Builder schema
+│   │   ├── technical.js          # Technical Agent persona
+│   │   ├── hr.js                 # HR / Culture Agent persona
+│   │   ├── hiringManager.js      # Hiring Manager Agent persona
+│   │   ├── skeptic.js            # Skeptic Agent persona
+│   │   ├── debate.js             # 4-turn sequential debate instructions
+│   │   ├── auditor.js            # Reasoning Auditor checklist
+│   │   ├── decision.js           # Decision Synthesizer rules
+│   │   └── questions.js          # Interview Question Generator rules
+│   └── data/
+│       └── demoData.js           # Built-in Alex Rivera candidate & Golden Run dataset
+│
+├── test/                         # Automated verification & acceptance suite
+│   ├── runner.js                 # 44-test verification suite
+│   ├── test_frontend_upload.js   # File picker & drag-and-drop verification
+│   ├── test_performance_pipeline.js # Benchmark stopwatch test
+│   └── fixtures/                 # Sample PDF, DOCX, and TXT files
+│
+├── netlify/                      # Netlify serverless functions
+│   └── functions/
+│       └── api.js                # Serverless function entrypoint
+│
+├── .env                          # Local environment variables (ignored by git)
+├── .env.example                  # Safe template for environment configuration
+├── .gitignore                    # Git exclusions
+├── netlify.toml                  # Netlify build & redirect routing configuration
+├── vite.config.js                # Vite development server & rollup build config
+└── package.json                  # Dependencies & npm scripts
 ```
-
-### Key Architectural Principles:
-1. **Genuinely Isolated Opinions**: In Stage 2, each agent receives *only* the structured `evaluation_context` and its own persona instructions. No agent sees another agent's initial opinion.
-2. **Debate with Attribution & Score Revision**: In Stage 3, agents review all four opinions and sequential debate turns. Score revisions require concrete evidentiary justification.
-3. **Reasoning Auditor (Non-Voting)**: In Stage 4, an auditor evaluates reasoning validity, checks for cherry-picking, unsupported leaps, and demographic proxy bias without holding voting power.
-4. **Comparative Synthesis (Zero Averaging)**: In Stage 5, the Decision Synthesizer weights evidence strength and tracks resolved vs unresolved disagreements without mathematical averaging or majority voting.
-5. **Programmatically Validated Quotes**: Every cited evidence quote is checked against source claims.
-6. **Prompt Injection Defense**: Untrusted candidate data is strictly isolated from system instructions.
 
 ---
 
-## 🚀 Quick Start & Local Development
+## ⚡ Quick Start
 
-### Prerequisites
-- Node.js 18+ (Node 20+ recommended)
-- npm 9+
-- Gemini API Key
-
-### Installation
+### 1. Configure Environment
+Create a `.env` file in the project root:
 ```bash
-npm install
+cp .env.example .env
 ```
-
-### Environment Configuration
-Create a `.env` file in the `project/` directory:
-```env
+Add your Gemini API key:
+```ini
 GEMINI_API_KEY=your_gemini_api_key_here
+PORT=3001
 ```
-*(Note: Do not commit `.env` to version control. It is already added to `.gitignore`.)*
 
-### Run Locally
+### 2. Run Locally in Development Mode
 ```bash
 npm run dev
-# Open in your browser: http://localhost:5173
 ```
+Open **[http://localhost:5173/run.html](http://localhost:5173/run.html)** in your browser.
 
----
-
-## 🧪 Testing & Verification
-
-Run the automated verification suite:
+### 3. Run Automated Tests
 ```bash
 npm test
 ```
 
-Run a live 12-call Gemini API test against the built-in demo candidate:
+### 4. Build for Production
 ```bash
-node test/test_full_pipeline.js
+npm run build
 ```
 
 ---
 
-## 🌐 Netlify Deployment
-
-The project is structured with Netlify Serverless Functions in `netlify/functions/api.js`.
-
-### Deploying to Netlify:
-1. Link the repository to Netlify.
-2. Under **Site Configuration** → **Environment Variables**, add:
-   - `GEMINI_API_KEY`: `your_gemini_api_key`
-3. Deploy! Netlify builds the Vite multi-page application and deploys the serverless functions.
+## 🔒 Security & Verification Guarantees
+- **Strict Persona Isolation**: In Stage 2, each agent is evaluated independently via separate, concurrent Gemini calls with zero cross-talk.
+- **Server-Side Extraction**: All document parsing (PDF, DOCX, TXT) occurs exclusively in Node.js on the server.
+- **Prompt Injection Defense**: Security preamble treats candidate text strictly as untrusted user data.
+- **Evidence-Grounded**: All candidate quotes are validated programmatically as verbatim substrings.

@@ -1,0 +1,413 @@
+/**
+ * UI Rendering and DOM Manipulation for The Panel Dashboard
+ */
+
+export function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export function openQuoteInspector(quote, source = '', context = '') {
+  const quoteModal = document.getElementById('quoteModal');
+  const quoteModalText = document.getElementById('quoteModalText');
+  const quoteModalSource = document.getElementById('quoteModalSource');
+  const quoteModalContext = document.getElementById('quoteModalContext');
+
+  if (!quoteModal) return;
+
+  if (quoteModalText) quoteModalText.textContent = `"${quote}"`;
+  if (quoteModalSource) quoteModalSource.textContent = source ? `Source: ${source}` : 'Source: Candidate Data';
+  if (quoteModalContext) quoteModalContext.textContent = context || 'Exact quote cited during candidate evaluation.';
+
+  quoteModal.style.display = 'flex';
+}
+
+export function setStageStatus(stage, status, badgeText) {
+  const el = document.getElementById(`step-${stage}`);
+  if (!el) return;
+  el.className = `tracker-step is-${status}`;
+  const badge = el.querySelector('.step-badge');
+  if (badge) badge.textContent = badgeText || status;
+}
+
+export function resetTracker() {
+  const tracker = document.getElementById('pipelineTracker');
+  if (!tracker) return;
+  tracker.style.display = 'grid';
+  const STAGES = ['profile', 'opinions', 'debate', 'auditor', 'decision', 'questions'];
+  STAGES.forEach((stage) => {
+    const el = document.getElementById(`step-${stage}`);
+    if (el) {
+      el.className = 'tracker-step';
+      const badge = el.querySelector('.step-badge');
+      if (badge) badge.textContent = 'Pending';
+    }
+  });
+}
+
+export function renderProfileContext(ctx) {
+  const profileContainer = document.getElementById('profileContainer');
+  if (!profileContainer || !ctx) return;
+
+  const candidate = ctx.candidate || {};
+  const role = ctx.role || {};
+  const claims = Array.isArray(ctx.claims) ? ctx.claims : [];
+  const inconsistencies = Array.isArray(ctx.potential_inconsistencies) ? ctx.potential_inconsistencies : [];
+
+  let html = `
+    <div class="card" style="border-top: 3px solid var(--lavender);">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+        <h3 class="card-title" style="margin-bottom: 0;">${escapeHtml(candidate.name || 'Candidate Profile')}</h3>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--lavender);">${escapeHtml(role.title || '')}</span>
+      </div>
+      <p style="color: #cbd5e1; font-size: 0.92rem; margin-bottom: 16px; line-height: 1.5;">${escapeHtml(candidate.summary || '')}</p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
+        <div>
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--lavender); margin-bottom: 6px; text-transform: uppercase;">Role Must-Haves</div>
+          <ul style="padding-left: 18px; color: #cbd5e1; font-size: 0.82rem; line-height: 1.4;">
+            ${(role.must_have || []).map((m) => `<li>${escapeHtml(m)}</li>`).join('')}
+          </ul>
+        </div>
+        <div>
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--lavender); margin-bottom: 6px; text-transform: uppercase;">Verified Claims Extracted</div>
+          <div style="font-size: 0.82rem; color: #cbd5e1;">${claims.length} explicit claim quotes mapped across Resume and Transcript.</div>
+        </div>
+      </div>
+  `;
+
+  if (inconsistencies.length > 0) {
+    html += `
+      <div style="border-top: 1px solid var(--border); padding-top: 14px;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: var(--skeptic-red); margin-bottom: 8px; text-transform: uppercase;">Tensions & Potential Inconsistencies Detected (${inconsistencies.length})</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${inconsistencies
+            .map(
+              (inc) => `
+            <div class="inconsistency-card">
+              <div class="inconsistency-title">${escapeHtml(inc.topic || 'Inconsistency')}</div>
+              <div style="font-size: 0.78rem; color: #cbd5e1; margin-bottom: 4px;"><strong>Resume:</strong> "${escapeHtml(inc.resume_statement || '')}"</div>
+              <div style="font-size: 0.78rem; color: #cbd5e1; margin-bottom: 4px;"><strong>Interview:</strong> "${escapeHtml(inc.interview_statement || '')}"</div>
+              <div style="font-size: 0.75rem; color: #fce7f3; font-style: italic;">Observation: ${escapeHtml(inc.observation || '')}</div>
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  html += `</div>`;
+  profileContainer.innerHTML = html;
+}
+
+export function renderOpinions(opinions, ctx) {
+  const container = document.getElementById('opinionsContainer');
+  if (!container || !Array.isArray(opinions)) return;
+
+  const ACCENTS = {
+    'Technical Agent': 'var(--tech-blue)',
+    'HR / Culture Agent': 'var(--hr-green)',
+    'Hiring Manager Agent': 'var(--manager-amber)',
+    'Skeptic Agent': 'var(--skeptic-red)'
+  };
+
+  container.innerHTML = opinions
+    .map((op) => {
+      const accent = ACCENTS[op.agent] || 'var(--lavender)';
+      const quotes = Array.isArray(op.evidence_quotes) ? op.evidence_quotes : [];
+      const scoreDisplay = op.score !== null && op.score !== undefined ? op.score : '—';
+
+      return `
+      <div class="opinion-card" style="--accent: ${accent};">
+        <div>
+          <div class="opinion-name">${escapeHtml(op.agent)}</div>
+          <div class="opinion-score">
+            <span class="score-num">${escapeHtml(scoreDisplay)}</span>
+            <span class="confidence-tag">${escapeHtml(op.confidence || 'Medium')} Confidence</span>
+          </div>
+          <div style="font-size: 0.78rem; font-weight: 700; color: ${accent}; margin-bottom: 8px;">${escapeHtml(op.verdict || '')}</div>
+          <p style="color: #cbd5e1; font-size: 0.82rem; line-height: 1.45; margin-bottom: 12px;">${escapeHtml(op.summary || op.reasoning || '')}</p>
+        </div>
+
+        <div>
+          ${
+            quotes.length > 0
+              ? `
+            <div class="evidence-box">
+              <div class="evidence-box-label">Cited Evidence Quotes (${quotes.length})</div>
+              ${quotes
+                .slice(0, 2)
+                .map(
+                  (q) => `
+                <div class="evidence-quote" onclick="window.thePanelOpenQuote('${escapeHtml(q.quote).replace(/'/g, "\\'")}', '${escapeHtml(op.agent)}', '${escapeHtml(q.relevance || '').replace(/'/g, "\\'")}')">
+                  "${escapeHtml(q.quote)}"
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+          `
+              : ''
+          }
+        </div>
+      </div>
+    `;
+    })
+    .join('');
+}
+
+export function updateCommitteeBar({ activeKey = null, opinions = [], turns = [] }) {
+  const bar = document.getElementById('committeeDeliberationBar');
+  if (!bar) return;
+
+  const PERSONAS = [
+    { key: 'technical', name: 'Technical Agent', avatar: 'T', accent: 'var(--tech-blue)' },
+    { key: 'hr', name: 'HR / Culture Agent', avatar: 'H', accent: 'var(--hr-green)' },
+    { key: 'manager', name: 'Hiring Manager Agent', avatar: 'M', accent: 'var(--manager-amber)' },
+    { key: 'skeptic', name: 'Skeptic Agent', avatar: 'S', accent: 'var(--skeptic-red)' }
+  ];
+
+  bar.innerHTML = PERSONAS.map((p) => {
+    const priorOpinion = (opinions || []).find((op) => op.agent === p.name);
+    const agentTurns = (turns || []).filter((t) => t.agent === p.name);
+    const lastTurn = agentTurns[agentTurns.length - 1];
+
+    let currentScore = priorOpinion && typeof priorOpinion.score === 'number' ? priorOpinion.score : '—';
+    if (lastTurn && typeof lastTurn.score_after === 'number') {
+      currentScore = lastTurn.score_after;
+    }
+
+    let statusText = 'Listening';
+    let chipClass = 'agent-chip';
+
+    if (activeKey === p.key) {
+      statusText = 'Speaking…';
+      chipClass += ' is-speaking';
+    } else if (lastTurn) {
+      statusText = lastTurn.position_changed ? 'Position Revised' : 'Maintained Stance';
+      chipClass += ' is-done';
+    } else {
+      chipClass += ' is-listening';
+    }
+
+    return `
+      <div class="${chipClass}" style="--chip-accent: ${p.accent};">
+        <div class="agent-chip-avatar">${p.avatar}</div>
+        <div class="agent-chip-info">
+          <div class="agent-chip-name">${p.name}</div>
+          <div class="agent-chip-status">${statusText}</div>
+        </div>
+        <div class="agent-chip-score">${currentScore}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+export function renderSingleDebateTurnCard(turn, index, ctx) {
+  const container = document.getElementById('debateContainer');
+  if (!container) return;
+
+  const ACCENTS = {
+    'Technical Agent': 'var(--tech-blue)',
+    'HR / Culture Agent': 'var(--hr-green)',
+    'Hiring Manager Agent': 'var(--manager-amber)',
+    'Skeptic Agent': 'var(--skeptic-red)'
+  };
+  const accent = ACCENTS[turn.agent] || 'var(--lavender)';
+
+  const div = document.createElement('div');
+  div.className = 'debate-turn';
+  div.style.borderLeftColor = accent;
+
+  const posBadge = turn.position_changed
+    ? `<span class="pos-change-badge yes">POSITION CHANGED: YES (${turn.score_before} ➔ ${turn.score_after})</span>`
+    : `<span class="pos-change-badge no">POSITION CHANGED: NO (${turn.score_after}/100)</span>`;
+
+  div.innerHTML = `
+    <div class="debate-avatar" style="border-color: ${accent}; color: ${accent};">
+      ${turn.agent.charAt(0)}
+    </div>
+    <div class="debate-bubble">
+      <div class="debate-meta" style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
+        <span class="reply-tag" style="color: ${accent};">Turn ${turn.turn_number} (${escapeHtml(turn.turn_type)}): ${escapeHtml(turn.agent)}</span>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <span style="font-size: 0.72rem; color: #cbd5e1;">Addressing: <strong>${escapeHtml(turn.responding_to || 'Committee')}</strong></span>
+          ${posBadge}
+        </div>
+      </div>
+      <p class="debate-text">${escapeHtml(turn.response)}</p>
+      ${
+        turn.reason_for_change
+          ? `<div style="font-size: 0.76rem; color: #fce7f3; margin-top: 6px; font-style: italic;">Rationale: ${escapeHtml(turn.reason_for_change)}</div>`
+          : ''
+      }
+    </div>
+  `;
+
+  container.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+export function updateEvidenceBoard(allEvidence, ctx) {
+  const boardList = document.getElementById('evidenceBoardList');
+  const countBadge = document.getElementById('evidenceCountBadge');
+  if (!boardList) return;
+
+  if (countBadge) countBadge.textContent = `${allEvidence.length} cited`;
+
+  if (allEvidence.length === 0) {
+    boardList.innerHTML = '<div class="evidence-empty-hint">Awaiting deliberation citations…</div>';
+    return;
+  }
+
+  const ACCENTS = {
+    'Technical Agent': 'var(--tech-blue)',
+    'HR / Culture Agent': 'var(--hr-green)',
+    'Hiring Manager Agent': 'var(--manager-amber)',
+    'Skeptic Agent': 'var(--skeptic-red)'
+  };
+
+  boardList.innerHTML = allEvidence
+    .map((ev) => {
+      const accent = ACCENTS[ev.agent] || 'var(--tech-blue)';
+      return `
+      <div class="evidence-board-item" style="--item-accent: ${accent};" onclick="window.thePanelOpenQuote('${escapeHtml(ev.quote).replace(/'/g, "\\'")}', '${escapeHtml(ev.source || 'Candidate Data')}', '${escapeHtml(ev.supports_issue || '').replace(/'/g, "\\'")}')">
+        <div class="evidence-item-header">
+          <span class="evidence-source-tag">${escapeHtml(ev.source || 'Source')}</span>
+          <span class="evidence-agent-tag" style="color: ${accent};">${escapeHtml(ev.agent || 'Panel')}</span>
+        </div>
+        <div class="evidence-quote-body">"${escapeHtml(ev.quote)}"</div>
+        ${ev.supports_issue ? `<div class="evidence-issue-support">${escapeHtml(ev.supports_issue)}</div>` : ''}
+      </div>
+    `;
+    })
+    .join('');
+}
+
+export function renderAuditor(auditor) {
+  const container = document.getElementById('auditorContainer');
+  if (!container || !auditor) return;
+
+  const reliability = auditor.overall_reliability || 'High';
+  const color = reliability === 'High' ? 'var(--hr-green)' : reliability === 'Medium' ? 'var(--manager-amber)' : 'var(--skeptic-red)';
+  const issues = Array.isArray(auditor.issues) ? auditor.issues : [];
+
+  container.innerHTML = `
+    <div class="card" style="border-top: 3px solid ${color};">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px;">
+        <h3 class="card-title" style="margin-bottom: 0;">Reasoning Quality Audit</h3>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 700; color: ${color};">
+          ${escapeHtml(reliability)} Reliability (${escapeHtml(auditor.confidence || 90)}%)
+        </span>
+      </div>
+      <p style="color: #cbd5e1; font-size: 0.88rem; margin-bottom: 16px;">
+        Non-voting audit assessing cherry-picking, unsupported leaps, and demographic proxy risks.
+      </p>
+
+      ${
+        issues.length > 0
+          ? `
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${issues
+            .map(
+              (iss) => `
+            <div style="background: rgba(255, 255, 255, 0.025); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+                <span>${escapeHtml(iss.agent || 'Agent')}</span>
+                <span style="color: var(--manager-amber);">${escapeHtml(iss.severity || 'Notice')}</span>
+              </div>
+              <div style="font-size: 0.8rem; color: #cbd5e1;">${escapeHtml(iss.issue || '')}</div>
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+      `
+          : '<div style="font-size: 0.85rem; color: var(--hr-green);">✓ No reasoning anomalies or evidence gaps flagged.</div>'
+      }
+    </div>
+  `;
+}
+
+export function renderVerdict(decision) {
+  const container = document.getElementById('verdictContainer');
+  if (!container || !decision) return;
+
+  const rec = decision.recommendation || 'Hire';
+  const isPositive = rec.includes('Hire') && !rec.includes('No Hire');
+  const color = isPositive ? 'var(--hr-green)' : rec.includes('No Hire') ? 'var(--skeptic-red)' : 'var(--manager-amber)';
+  const unresolved = Array.isArray(decision.unresolved_disagreements) ? decision.unresolved_disagreements : [];
+
+  container.innerHTML = `
+    <div class="card" style="border-top: 4px solid ${color};">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+        <div>
+          <span style="font-size: 0.78rem; font-weight: 700; color: var(--lavender); text-transform: uppercase;">Synthesized Panel Recommendation</span>
+          <h2 style="font-size: 1.8rem; color: ${color}; font-weight: 800; margin-top: 4px;">${escapeHtml(rec)}</h2>
+        </div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem; color: #cbd5e1;">
+          Confidence: <strong>${escapeHtml(decision.confidence || 85)}%</strong>
+        </span>
+      </div>
+
+      <p style="color: #ffffff; font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px; white-space: pre-line;">
+        ${escapeHtml(decision.decision_summary || '')}
+      </p>
+
+      ${
+        unresolved.length > 0
+          ? `
+        <div style="border-top: 1px solid var(--border); padding-top: 16px;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--manager-amber); margin-bottom: 8px; text-transform: uppercase;">
+            Unresolved Disagreements for Human Follow-up (${unresolved.length})
+          </div>
+          <ul style="padding-left: 20px; color: #cbd5e1; font-size: 0.85rem; line-height: 1.5;">
+            ${unresolved.map((u) => `<li>${escapeHtml(u.issue || u)}</li>`).join('')}
+          </ul>
+        </div>
+      `
+          : ''
+      }
+    </div>
+  `;
+}
+
+export function renderQuestions(questionsData) {
+  const container = document.getElementById('questionsContainer');
+  if (!container || !questionsData) return;
+
+  const questions = Array.isArray(questionsData.questions) ? questionsData.questions : [];
+
+  container.innerHTML = `
+    <div class="card" style="border-top: 3px solid var(--lavender);">
+      <h3 class="card-title">Targeted Interview Questions</h3>
+      <p style="color: #cbd5e1; font-size: 0.88rem; margin-bottom: 16px;">
+        Evidence-based questions tied directly to the unresolved disagreements above.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        ${questions
+          .map(
+            (q, i) => `
+          <div style="background: rgba(255, 255, 255, 0.025); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;">
+            <div style="display: flex; gap: 8px; font-weight: 700; color: #ffffff; font-size: 0.92rem; margin-bottom: 6px;">
+              <span style="color: var(--lavender);">${i + 1}.</span>
+              <span>${escapeHtml(q.question)}</span>
+            </div>
+            <div style="font-size: 0.78rem; color: #cbd5e1; margin-left: 20px;">
+              <strong>Intent:</strong> ${escapeHtml(q.reason || '')}
+            </div>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    </div>
+  `;
+}

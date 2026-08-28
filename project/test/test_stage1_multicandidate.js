@@ -4,8 +4,8 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { extractDocumentText } from '../lib/documentExtractor.js';
-import { runProfileBuilder } from '../lib/pipeline.js';
+import { extractDocumentTextFromBuffer } from '../backend/services/pdfParser.js';
+import { runProfileBuilder } from '../backend/pipeline/profileBuilder.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,7 +22,7 @@ async function runMultiCandidateVerification() {
   
   // Log 1: Extracted text log
   console.log('\n--- LOG 1A: PDF Text Extraction (Candidate A) ---');
-  const extractedA = await extractDocumentText({ buffer: pdfBufferA, filename: 'sample_resume.pdf' });
+  const extractedA = await extractDocumentTextFromBuffer(pdfBufferA, 'sample_resume.pdf');
   
   const roleA = "Position: Staff Distributed Systems Engineer\nRequirements: Distributed consensus, Raft, Paxos, low-latency Go.";
   const transcriptA = `[00:01:00] Interviewer: "Tell us about the Raft cluster at Apex."\n[00:01:30] Alex Rivera: "I architected the 5-node replica groups processing 3.1M operations per second."`;
@@ -50,7 +50,7 @@ async function runMultiCandidateVerification() {
 
   // Log 1: Extracted text log
   console.log('\n--- LOG 1B: PDF Text Extraction (Candidate B) ---');
-  const extractedB = await extractDocumentText({ buffer: pdfBufferB, filename: 'candidate_b_elena.pdf' });
+  const extractedB = await extractDocumentTextFromBuffer(pdfBufferB, 'candidate_b_elena.pdf');
 
   const roleB = "Position: Lead WebGL Graphics Engineer\nRequirements: 3D browser graphics, WebGL, WebGPU, Three.js, WebAssembly.";
   const transcriptB = `[00:01:00] Interviewer: "Walk us through the 3D scene editor at VoxelWorks."\n[00:01:40] Elena Rostova: "I designed the WebGPU texture streaming pipeline achieving stable 60fps on mobile browsers."`;
