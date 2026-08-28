@@ -1,15 +1,26 @@
 /**
  * Frontend Client for The Panel API
- * Executes progressive multi-agent pipeline calls against backend /api/*
+ * Executes progressive multi-agent pipeline calls.
+ *
+ * Supports both:
+ * - Production (Vercel frontend -> Render backend via VITE_API_URL, e.g. https://your-backend.onrender.com)
+ * - Local development (Vite development proxy via relative paths /api/*)
  */
 
+export const API_BASE_URL = (import.meta.env?.VITE_API_URL || '').replace(/\/+$/, '');
+
+export function apiUrl(path) {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE_URL}${cleanPath}`;
+}
+
 export async function fetchHealth() {
-  const res = await fetch('/api/health');
+  const res = await fetch(apiUrl('/api/health'));
   return res.json();
 }
 
 export async function fetchDemoData() {
-  const res = await fetch('/api/demo');
+  const res = await fetch(apiUrl('/api/demo'));
   if (!res.ok) throw new Error(`Failed to load demo data (${res.status})`);
   return res.json();
 }
@@ -20,7 +31,7 @@ export async function extractFileServerSide(file) {
     reader.onload = async () => {
       try {
         const base64Data = reader.result;
-        const res = await fetch('/api/extract', {
+        const res = await fetch(apiUrl('/api/extract'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -47,7 +58,7 @@ export async function extractFileServerSide(file) {
 }
 
 export async function fetchProfile({ resumeText, transcriptText, jobDescriptionText }) {
-  const res = await fetch('/api/evaluate/profile', {
+  const res = await fetch(apiUrl('/api/evaluate/profile'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ resumeText, transcriptText, jobDescriptionText })
@@ -60,7 +71,7 @@ export async function fetchProfile({ resumeText, transcriptText, jobDescriptionT
 }
 
 export async function fetchOpinion({ evaluationContext, agentKey, rawSourceText = '' }) {
-  const res = await fetch('/api/evaluate/opinion', {
+  const res = await fetch(apiUrl('/api/evaluate/opinion'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ evaluationContext, agentKey, rawSourceText })
@@ -80,7 +91,7 @@ export async function fetchDebateTurn({
   turnNumber,
   turnType
 }) {
-  const res = await fetch('/api/evaluate/debate/turn', {
+  const res = await fetch(apiUrl('/api/evaluate/debate/turn'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -100,7 +111,7 @@ export async function fetchDebateTurn({
 }
 
 export async function fetchAudit({ evaluationContext, opinions, debateTranscript }) {
-  const res = await fetch('/api/evaluate/audit', {
+  const res = await fetch(apiUrl('/api/evaluate/audit'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ evaluationContext, opinions, debateTranscript })
@@ -113,7 +124,7 @@ export async function fetchAudit({ evaluationContext, opinions, debateTranscript
 }
 
 export async function fetchSynthesize({ evaluationContext, opinions, debateTranscript, auditorReport }) {
-  const res = await fetch('/api/evaluate/synthesize', {
+  const res = await fetch(apiUrl('/api/evaluate/synthesize'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -131,7 +142,7 @@ export async function fetchSynthesize({ evaluationContext, opinions, debateTrans
 }
 
 export async function fetchQuestions({ evaluationContext, unresolvedDisagreements }) {
-  const res = await fetch('/api/evaluate/questions', {
+  const res = await fetch(apiUrl('/api/evaluate/questions'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -142,6 +153,19 @@ export async function fetchQuestions({ evaluationContext, unresolvedDisagreement
   if (!res.ok) {
     const errJson = await res.json().catch(() => ({}));
     throw new Error(errJson.error || `Question generator failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function fetchFullPipeline({ resumeText, transcriptText, jobDescriptionText, forceDemo = false }) {
+  const res = await fetch(apiUrl('/api/evaluate/full'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resumeText, transcriptText, jobDescriptionText, forceDemo })
+  });
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error || `Evaluation pipeline failed (${res.status})`);
   }
   return res.json();
 }

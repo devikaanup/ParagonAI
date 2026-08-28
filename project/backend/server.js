@@ -1,6 +1,6 @@
 /**
- * Standalone Local API Server for The Panel
- * Runs on port 3001 and handles all /api/* requests.
+ * Standalone API Server for The Panel (Local Dev & Render Deployment)
+ * Handles all /api/* requests with CORS support.
  */
 
 import http from 'http';
@@ -22,7 +22,9 @@ const server = http.createServer(async (req, res) => {
     httpMethod: req.method,
     path: req.url.split('?')[0],
     headers: req.headers,
-    queryStringParameters: Object.fromEntries(new URL(req.url, `http://${req.headers.host || 'localhost'}`).searchParams),
+    queryStringParameters: Object.fromEntries(
+      new URL(req.url, `http://${req.headers.host || 'localhost'}`).searchParams
+    ),
     body: bodyString
   };
 
@@ -31,7 +33,12 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(result.statusCode, result.headers);
     res.end(result.body);
   } catch (err) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.writeHead(500, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+    });
     res.end(JSON.stringify({ error: err.message }));
   }
 });
